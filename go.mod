@@ -1,4 +1,4 @@
-module github.com/GoCodeAlone/workflow-plugin-TEMPLATE
+module github.com/GoCodeAlone/workflow-plugin-audit-chain
 
 go 1.26.0
 
