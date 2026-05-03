@@ -1,0 +1,245 @@
+syntax = "proto3";
+package workflow.plugin.audit.v1;
+
+option go_package = "github.com/GoCodeAlone/workflow-plugin-audit-chain/gen;auditv1";
+
+// LedgerConfig declares a ledger partition with its anchor provider config
+// and scheduling parameters. Used by the audit.ledger module type.
+message LedgerConfig {
+  // name is the partition key (e.g. "bmw-financial").
+  string name = 1;
+  // description is a human-readable description of the ledger's purpose.
+  string description = 2;
+  // anchor_providers lists the names of active anchor providers for this ledger.
+  repeated string anchor_providers = 3;
+  // anchor_schedule is a cron expression controlling when Merkle roots are anchored.
+  string anchor_schedule = 4;
+  // anchor_min_entries is the minimum number of new entries required before anchoring.
+  int32 anchor_min_entries = 5;
+  // payload_schema is an optional JSON Schema (bytes) for payload validation at append time.
+  bytes payload_schema = 6;
+}
+
+// ─── step.audit.append ───────────────────────────────────────────────────────
+
+// AppendRequest is the input for step.audit.append.
+message AppendRequest {
+  // ledger is the partition key identifying which ledger to append to.
+  string ledger = 1;
+  // event_type is the application-defined event classification.
+  string event_type = 2;
+  // payload is the canonical JSON (RFC 8785) bytes of the event data.
+  bytes payload = 3;
+  // actor is the application-defined identifier of who/what triggered the event.
+  string actor = 4;
+  // metadata is optional canonical JSON (RFC 8785) bytes for non-payload metadata.
+  bytes metadata = 5;
+}
+
+// AppendResponse is the output from step.audit.append.
+message AppendResponse {
+  // sequence is the monotonic sequence number assigned to the new entry.
+  int64 sequence = 1;
+  // entry_hash is the SHA256 hash of the new entry (hex-encoded).
+  string entry_hash = 2;
+  // created_at is the timestamp when the entry was appended (RFC3339).
+  string created_at = 3;
+}
+
+// ─── step.audit.verify ───────────────────────────────────────────────────────
+
+// VerifyRequest is the input for step.audit.verify.
+message VerifyRequest {
+  // ledger is the partition key to verify.
+  string ledger = 1;
+  // start_sequence is the first sequence number to verify (inclusive).
+  int64 start_sequence = 2;
+  // end_sequence is the last sequence number to verify (inclusive). 0 = latest.
+  int64 end_sequence = 3;
+}
+
+// VerifyResponse is the output from step.audit.verify.
+message VerifyResponse {
+  // valid is true if the chain is intact over the verified range.
+  bool valid = 1;
+  // first_invalid_sequence is the sequence number of the first broken entry; 0 if valid.
+  int64 first_invalid_sequence = 2;
+  // failure_reason describes why the chain is broken; empty if valid.
+  string failure_reason = 3;
+  // entries_verified is the number of entries that were checked.
+  int64 entries_verified = 4;
+}
+
+// ─── step.audit.merkle_root ──────────────────────────────────────────────────
+
+// MerkleRootRequest is the input for step.audit.merkle_root.
+message MerkleRootRequest {
+  // ledger is the partition key.
+  string ledger = 1;
+  // start_sequence is the first entry to include in the tree (inclusive).
+  int64 start_sequence = 2;
+  // end_sequence is the last entry to include in the tree (inclusive). 0 = latest.
+  int64 end_sequence = 3;
+}
+
+// MerkleRootResponse is the output from step.audit.merkle_root.
+message MerkleRootResponse {
+  // root is the hex-encoded Merkle root hash over entry_hashes in the range.
+  string root = 1;
+  // entries_included is the count of entries included in the tree.
+  int64 entries_included = 2;
+  // start_sequence is the first sequence included in the tree (echoed from request).
+  int64 start_sequence = 3;
+  // end_sequence is the last sequence included in the tree (the resolved value; useful
+  // when the request used 0 = latest).
+  int64 end_sequence = 4;
+}
+
+// ─── step.audit.anchor ───────────────────────────────────────────────────────
+
+// AnchorRequest is the input for step.audit.anchor.
+message AnchorRequest {
+  // ledger is the partition key.
+  string ledger = 1;
+  // start_sequence is the first entry covered by the anchor range (inclusive).
+  int64 start_sequence = 2;
+  // end_sequence is the last entry covered by the anchor range (inclusive). 0 = latest.
+  int64 end_sequence = 3;
+  // providers lists which anchor providers to use; empty = all configured providers.
+  repeated string providers = 4;
+}
+
+// AnchorResponse is the output from step.audit.anchor.
+message AnchorResponse {
+  // anchors contains one record per provider that was anchored.
+  repeated AnchorRecord anchors = 1;
+}
+
+// AnchorRecord is a single anchor result.
+message AnchorRecord {
+  // provider is the anchor provider name (e.g. "opentimestamps", "git").
+  string provider = 1;
+  // external_id is the provider-specific anchor reference (e.g. Bitcoin tx hash).
+  string external_id = 2;
+  // confirmation is the current confirmation state: "pending", "confirmed", or "finalized".
+  string confirmation = 3;
+  // anchored_at is the timestamp when the anchor was submitted (RFC3339).
+  string anchored_at = 4;
+}
+
+// ─── step.audit.poll_anchor_confirmation ─────────────────────────────────────
+
+// PollAnchorConfirmationRequest is the input for step.audit.poll_anchor_confirmation.
+// Used by the periodic confirmation cron (e.g. OpenTimestamps may take hours-to-days
+// to finalize on Bitcoin).
+message PollAnchorConfirmationRequest {
+  // anchor_id is the audit_anchors.id (BIGSERIAL, passed as string) of the pending anchor row.
+  string anchor_id = 1;
+  // provider is the anchor provider name stored in audit_anchors.provider.
+  string provider = 2;
+  // external_id is the provider's anchor reference stored in audit_anchors.external_id.
+  string external_id = 3;
+  // proof_data is the opaque provider-specific proof bytes stored in audit_anchors.proof_data.
+  bytes proof_data = 4;
+}
+
+// PollAnchorConfirmationResponse is the output from step.audit.poll_anchor_confirmation.
+//
+// Transient errors (calendar-server unreachable, network partition) MUST be returned
+// as a successful response with current_confirmation = previous_confirmation,
+// transitioned = false, swallowed = true, and error_message populated.
+// Hard errors (invalid proof, malformed payload) return a gRPC error and abort the step.
+// This contract lets cron-audit-anchor-confirm continue iterating across pending anchors
+// when one calendar server is temporarily down.
+message PollAnchorConfirmationResponse {
+  // previous_confirmation is the confirmation state before this poll.
+  string previous_confirmation = 1;
+  // current_confirmation is the confirmation state after this poll.
+  string current_confirmation = 2;
+  // transitioned is true if the confirmation level advanced during this poll.
+  bool transitioned = 3;
+  // updated_at is the timestamp of the poll (RFC3339).
+  string updated_at = 4;
+  // swallowed is true when a transient error was encountered but suppressed.
+  bool swallowed = 5;
+  // error_message is populated when swallowed = true, describing the transient error.
+  string error_message = 6;
+}
+
+// ─── step.audit.proof ────────────────────────────────────────────────────────
+
+// ProofRequest is the input for step.audit.proof.
+message ProofRequest {
+  // ledger is the partition key.
+  string ledger = 1;
+  // sequence is the entry sequence number for which to generate the proof.
+  int64 sequence = 2;
+}
+
+// ProofResponse is the output from step.audit.proof.
+message ProofResponse {
+  // entry is the full audit log entry at the requested sequence.
+  Entry entry = 1;
+  // merkle_path is the Merkle inclusion proof (list of hex-encoded sibling hashes).
+  repeated string merkle_path = 2;
+  // merkle_root is the hex-encoded Merkle root of the tree that contains this entry.
+  string merkle_root = 3;
+  // anchors lists all anchor records whose range covers this entry's sequence.
+  repeated AnchorRecord anchors = 4;
+}
+
+// Entry is a single audit log entry.
+message Entry {
+  // sequence is the monotonic sequence number.
+  int64 sequence = 1;
+  // ledger is the partition key.
+  string ledger = 2;
+  // event_type is the application-defined event classification.
+  string event_type = 3;
+  // payload is the canonical JSON (RFC 8785) bytes of the event data.
+  bytes payload = 4;
+  // entry_hash is the SHA256 hash of this entry (hex-encoded).
+  // Preimage: SHA256 of the RFC-8785 canonical JSON of the object
+  //   { "sequence": <int64>, "ledger": <string>, "event_type": <string>,
+  //     "payload_hash": <hex-SHA256(canonical(payload))>,
+  //     "prev_entry_hash": <string>, "created_at": <RFC3339> }
+  // Keys sorted lexicographically, no whitespace. actor and metadata are NOT
+  // included in the entry_hash preimage (they are stored but are not load-bearing
+  // for chain integrity).
+  string entry_hash = 5;
+  // prev_entry_hash is the entry_hash of the preceding entry; empty string for the
+  // genesis entry (sequence 1).
+  string prev_entry_hash = 6;
+  // created_at is when this entry was appended (RFC3339).
+  string created_at = 7;
+  // actor is the application-defined identifier of who/what triggered the event.
+  // Stored for audit purposes; not included in the entry_hash preimage.
+  string actor = 8;
+  // metadata is the canonical JSON (RFC 8785) bytes for non-payload metadata;
+  // empty if not set. Not included in the entry_hash preimage.
+  bytes metadata = 9;
+}
+
+// ─── step.audit.public_receipt ───────────────────────────────────────────────
+
+// PublicReceiptRequest is the input for step.audit.public_receipt.
+message PublicReceiptRequest {
+  // ledger is the partition key.
+  string ledger = 1;
+  // sequence is the entry sequence number for which to generate the public receipt.
+  int64 sequence = 2;
+  // redact_fields lists JSON paths in payload to redact with stable per-receipt
+  // pseudonyms (e.g. ["contributor_user_id"]). The redacted-payload + pseudonym
+  // mapping is included in the receipt; the entry_hash remains verifiable.
+  repeated string redact_fields = 3;
+}
+
+// PublicReceiptResponse is the output from step.audit.public_receipt.
+message PublicReceiptResponse {
+  // receipt_url is the canonical URL where the receipt JSON is served.
+  string receipt_url = 1;
+  // receipt_json is the full verifiable receipt JSON string (entry + proof + anchors + pseudonym map).
+  string receipt_json = 2;
+  // receipt_hash is the SHA256 hash of receipt_json (hex-encoded).
+  string receipt_hash = 3;
+}

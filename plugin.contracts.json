@@ -1,4 +1,42 @@
 {
     "version": "1",
-    "contracts": []
+    "protoPackage": "workflow.plugin.audit.v1",
+    "protoFile": "proto/audit.proto",
+    "contracts": [
+        {
+            "type": "step.audit.append",
+            "inputType": "workflow.plugin.audit.v1.AppendRequest",
+            "outputType": "workflow.plugin.audit.v1.AppendResponse"
+        },
+        {
+            "type": "step.audit.verify",
+            "inputType": "workflow.plugin.audit.v1.VerifyRequest",
+            "outputType": "workflow.plugin.audit.v1.VerifyResponse"
+        },
+        {
+            "type": "step.audit.merkle_root",
+            "inputType": "workflow.plugin.audit.v1.MerkleRootRequest",
+            "outputType": "workflow.plugin.audit.v1.MerkleRootResponse"
+        },
+        {
+            "type": "step.audit.anchor",
+            "inputType": "workflow.plugin.audit.v1.AnchorRequest",
+            "outputType": "workflow.plugin.audit.v1.AnchorResponse"
+        },
+        {
+            "type": "step.audit.poll_anchor_confirmation",
+            "inputType": "workflow.plugin.audit.v1.PollAnchorConfirmationRequest",
+            "outputType": "workflow.plugin.audit.v1.PollAnchorConfirmationResponse"
+        },
+        {
+            "type": "step.audit.proof",
+            "inputType": "workflow.plugin.audit.v1.ProofRequest",
+            "outputType": "workflow.plugin.audit.v1.ProofResponse"
+        },
+        {
+            "type": "step.audit.public_receipt",
+            "inputType": "workflow.plugin.audit.v1.PublicReceiptRequest",
+            "outputType": "workflow.plugin.audit.v1.PublicReceiptResponse"
+        }
+    ]
 }
