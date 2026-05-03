@@ -1,4 +1,4 @@
-.PHONY: proto-gen build test vet
+.PHONY: proto-gen build test test-migrations vet
 
 # Regenerate Go bindings from proto/audit.proto.
 # Requires: protoc + protoc-gen-go (go install google.golang.org/protobuf/cmd/protoc-gen-go@latest)
@@ -14,6 +14,9 @@ build:
 
 test:
 	GOWORK=off go test ./... -v -race -count=1
+
+test-migrations:
+	GOWORK=off go test ./chain/... -v -race -count=1 -run TestMigrations
 
 vet:
 	GOWORK=off go vet ./...
