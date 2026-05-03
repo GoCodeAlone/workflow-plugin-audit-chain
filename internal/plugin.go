@@ -16,12 +16,15 @@ import (
 // unreleased dev builds; goreleaser overrides with the real release tag.
 var Version = "0.0.0"
 
-// AuditChainPlugin implements sdk.PluginProvider, sdk.TypedModuleProvider, and
-// sdk.TypedStepProvider for the audit-chain plugin.
-// Zero map[string]any in plugin code: all module and step boundaries use typed
-// proto messages (anypb.Any) — the engine calls the Typed* interfaces and the
-// legacy map-based stubs return an error so they are never silently invoked.
+// AuditChainPlugin implements sdk.PluginProvider and sdk.TypedModuleProvider.
+// sdk.TypedStepProvider is added in Task 14 (step types).
+// Zero map[string]any in plugin code: all module boundaries use typed proto
+// messages (anypb.Any) — the engine calls CreateTypedModule and the legacy
+// map-based CreateModule stub returns an error so it is never silently invoked.
 type AuditChainPlugin struct{}
+
+// Compile-time assertion: AuditChainPlugin must satisfy TypedModuleProvider.
+var _ sdk.TypedModuleProvider = (*AuditChainPlugin)(nil)
 
 // NewPlugin returns a new plugin instance. main.go calls sdk.Serve(NewPlugin()).
 func NewPlugin() sdk.PluginProvider {

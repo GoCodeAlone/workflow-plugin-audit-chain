@@ -66,8 +66,11 @@ type LedgerModule struct {
 var _ sdk.ModuleInstance = (*LedgerModule)(nil)
 
 // NewLedgerModule creates a LedgerModule from a typed LedgerConfig proto.
-// Returns an error if config.Dsn is empty.
+// Returns an error if config.Name or config.Dsn is empty.
 func NewLedgerModule(instanceName string, config *auditv1.LedgerConfig) (sdk.ModuleInstance, error) {
+	if config.GetName() == "" {
+		return nil, fmt.Errorf("audit.ledger %q: config.name is required", instanceName)
+	}
 	if config.GetDsn() == "" {
 		return nil, fmt.Errorf("audit.ledger %q: config.dsn is required", instanceName)
 	}
@@ -81,7 +84,11 @@ func NewLedgerModule(instanceName string, config *auditv1.LedgerConfig) (sdk.Mod
 // sql.Open is lazy: the connection string is validated at parse time but no
 // network call is made until the first query. This keeps Init fast and allows
 // unit tests to run without a real Postgres instance.
+// Returns an error if called more than once to prevent connection pool leaks.
 func (m *LedgerModule) Init() error {
+	if m.db != nil {
+		return fmt.Errorf("audit.ledger %q: already initialized", m.instanceName)
+	}
 	db, err := sql.Open("pgx", m.config.GetDsn())
 	if err != nil {
 		return fmt.Errorf("audit.ledger %q: open db: %w", m.instanceName, err)

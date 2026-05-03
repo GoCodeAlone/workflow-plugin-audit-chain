@@ -8,6 +8,19 @@ import (
 	"github.com/GoCodeAlone/workflow-plugin-audit-chain/modules"
 )
 
+// TestNewLedgerModule_RejectsEmptyName verifies that NewLedgerModule fails when
+// config.Name is empty.
+func TestNewLedgerModule_RejectsEmptyName(t *testing.T) {
+	cfg := &auditv1.LedgerConfig{
+		Name: "",
+		Dsn:  "postgres://user:pass@localhost/db?sslmode=disable",
+	}
+	_, err := modules.NewLedgerModule("test-instance", cfg)
+	if err == nil {
+		t.Fatal("expected error for empty name, got nil")
+	}
+}
+
 // TestNewLedgerModule_RejectsEmptyDSN verifies that NewLedgerModule fails when
 // no DSN is provided.
 func TestNewLedgerModule_RejectsEmptyDSN(t *testing.T) {
@@ -76,6 +89,7 @@ func TestLedgerModule_StopUnregisters(t *testing.T) {
 	ledgerName := "stop-test-ledger"
 
 	modules.UnregisterLedger(ledgerName)
+	t.Cleanup(func() { modules.UnregisterLedger(ledgerName) })
 
 	cfg := &auditv1.LedgerConfig{
 		Name: ledgerName,
@@ -97,6 +111,29 @@ func TestLedgerModule_StopUnregisters(t *testing.T) {
 	_, ok := modules.GetLedger(ledgerName)
 	if ok {
 		t.Fatal("GetLedger returned true after Stop; appender should have been unregistered")
+	}
+}
+
+// TestLedgerModule_InitDoubleCallReturnsError verifies that calling Init twice
+// returns an error rather than leaking the first DB connection pool.
+func TestLedgerModule_InitDoubleCallReturnsError(t *testing.T) {
+	ledgerName := "double-init-ledger"
+	modules.UnregisterLedger(ledgerName)
+	t.Cleanup(func() { modules.UnregisterLedger(ledgerName) })
+
+	cfg := &auditv1.LedgerConfig{
+		Name: ledgerName,
+		Dsn:  "postgres://user:pass@localhost:5432/db?sslmode=disable",
+	}
+	m, err := modules.NewLedgerModule("test-instance", cfg)
+	if err != nil {
+		t.Fatalf("NewLedgerModule: %v", err)
+	}
+	if err := m.Init(); err != nil {
+		t.Fatalf("first Init: %v", err)
+	}
+	if err := m.Init(); err == nil {
+		t.Fatal("expected error on second Init call, got nil")
 	}
 }
 
