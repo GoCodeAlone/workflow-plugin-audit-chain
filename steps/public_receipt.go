@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/GoCodeAlone/workflow-plugin-audit-chain/chain"
@@ -14,6 +15,44 @@ import (
 	sdk "github.com/GoCodeAlone/workflow/plugin/external/sdk"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
+
+// ── receipt document types (no map[string]any) ────────────────────────────────
+
+// receiptDocument is the top-level object serialised into receipt_json.
+type receiptDocument struct {
+	Entry        receiptEntry        `json:"entry"`
+	MerkleProof  receiptMerkleProof  `json:"merkle_proof"`
+	Anchors      []receiptAnchor     `json:"anchors"`
+	PseudonymMap map[string]string   `json:"pseudonym_map,omitempty"`
+	GeneratedAt  string              `json:"generated_at"`
+}
+
+// receiptEntry holds the audit log entry fields included in the receipt.
+type receiptEntry struct {
+	Sequence      int64           `json:"sequence"`
+	Ledger        string          `json:"ledger"`
+	EventType     string          `json:"event_type"`
+	EntryHash     string          `json:"entry_hash"`
+	PrevEntryHash string          `json:"prev_entry_hash"`
+	Payload       json.RawMessage `json:"payload"`
+	CreatedAt     string          `json:"created_at"`
+}
+
+// receiptMerkleProof holds the Merkle root and inclusion path.
+type receiptMerkleProof struct {
+	MerkleRoot string   `json:"merkle_root"`
+	MerklePath []string `json:"merkle_path"`
+}
+
+// receiptAnchor holds a single anchor record for the receipt document.
+type receiptAnchor struct {
+	Provider     string `json:"provider"`
+	ExternalID   string `json:"external_id"`
+	Confirmation string `json:"confirmation"`
+	AnchoredAt   string `json:"anchored_at"`
+}
+
+// ── handler ───────────────────────────────────────────────────────────────────
 
 // PublicReceiptHandler is the TypedStepHandler for step.audit.public_receipt.
 // It builds a self-contained verifiable receipt JSON that includes the audit
@@ -61,37 +100,45 @@ func PublicReceiptHandler(
 			}
 		}
 	}
+	if merklePath == nil {
+		merklePath = []string{}
+	}
 
 	// Apply payload redactions if requested.
-	redactedPayload, pseudonymMap, err := applyRedactions(entry.GetPayload(), input.GetRedactFields())
+	redactedPayload, pseudonymMap, err := ApplyRedactions(entry.GetPayload(), input.GetRedactFields())
 	if err != nil {
 		return nil, fmt.Errorf("step.audit.public_receipt: redact: %w", err)
 	}
 
-	// Build anchor records.
-	anchorRecords := make([]*auditv1.AnchorRecord, 0, len(anchors))
+	// Convert anchors to the receipt document format.
+	anchorsForDoc := make([]receiptAnchor, 0, len(anchors))
 	for _, a := range anchors {
-		anchorRecords = append(anchorRecords, a.record)
+		anchorsForDoc = append(anchorsForDoc, receiptAnchor{
+			Provider:     a.record.GetProvider(),
+			ExternalID:   a.record.GetExternalId(),
+			Confirmation: a.record.GetConfirmation(),
+			AnchoredAt:   a.record.GetAnchoredAt(),
+		})
 	}
 
-	// Marshal the receipt document.
-	receiptDoc := map[string]any{
-		"entry": map[string]any{
-			"sequence":        entry.GetSequence(),
-			"ledger":          entry.GetLedger(),
-			"event_type":      entry.GetEventType(),
-			"entry_hash":      entry.GetEntryHash(),
-			"prev_entry_hash": entry.GetPrevEntryHash(),
-			"payload":         json.RawMessage(redactedPayload),
-			"created_at":      entry.GetCreatedAt(),
+	// Marshal the receipt document using typed structs (no map[string]any).
+	receiptDoc := receiptDocument{
+		Entry: receiptEntry{
+			Sequence:      entry.GetSequence(),
+			Ledger:        entry.GetLedger(),
+			EventType:     entry.GetEventType(),
+			EntryHash:     entry.GetEntryHash(),
+			PrevEntryHash: entry.GetPrevEntryHash(),
+			Payload:       json.RawMessage(redactedPayload),
+			CreatedAt:     entry.GetCreatedAt(),
 		},
-		"merkle_proof": map[string]any{
-			"merkle_root": merkleRoot,
-			"merkle_path": merklePath,
+		MerkleProof: receiptMerkleProof{
+			MerkleRoot: merkleRoot,
+			MerklePath: merklePath,
 		},
-		"anchors":      anchorRecordSlice(anchorRecords),
-		"pseudonym_map": pseudonymMap,
-		"generated_at": time.Now().UTC().Format(time.RFC3339),
+		Anchors:      anchorsForDoc,
+		PseudonymMap: pseudonymMap,
+		GeneratedAt:  time.Now().UTC().Format(time.RFC3339),
 	}
 
 	receiptBytes, err := json.Marshal(receiptDoc)
@@ -107,17 +154,22 @@ func PublicReceiptHandler(
 		Output: &auditv1.PublicReceiptResponse{
 			ReceiptJson: receiptJSON,
 			ReceiptHash: receiptHash,
-			// ReceiptUrl is empty until a serving layer is wired; the hash
-			// and JSON are sufficient for offline verification.
+			// ReceiptUrl is empty until a serving layer is wired; hash + JSON
+			// are sufficient for offline verification.
 		},
 	}, nil
 }
 
-// applyRedactions removes the listed JSON path keys from payload and returns
-// the redacted payload bytes plus a pseudonym map (key → stable placeholder).
-// Only top-level keys are supported in this implementation.
-// If redactFields is empty, the original payload is returned unchanged.
-func applyRedactions(payload []byte, redactFields []string) ([]byte, map[string]string, error) {
+// ── redaction ─────────────────────────────────────────────────────────────────
+
+// ApplyRedactions replaces the listed top-level JSON keys in payload with
+// stable per-receipt pseudonyms of the form "contributor_N", where N increments
+// once per unique original value within this receipt's scope (duplicate original
+// values receive the same pseudonym). The field is REPLACED (not deleted) so
+// the payload structure is preserved.
+// Returns the modified payload bytes, a field→pseudonym mapping, and any error.
+// Exported so it can be tested independently.
+func ApplyRedactions(payload []byte, redactFields []string) ([]byte, map[string]string, error) {
 	if len(redactFields) == 0 || len(payload) == 0 {
 		return payload, nil, nil
 	}
@@ -128,14 +180,27 @@ func applyRedactions(payload []byte, redactFields []string) ([]byte, map[string]
 	}
 
 	pseudonymMap := make(map[string]string, len(redactFields))
+	// valueToCounter maps the raw JSON representation of a value to its assigned
+	// pseudonym so that duplicate originals get the same contributor label.
+	valueToCounter := make(map[string]string)
+	counter := 1
+
 	for _, field := range redactFields {
-		if _, exists := obj[field]; !exists {
+		raw, exists := obj[field]
+		if !exists {
 			continue
 		}
-		// Stable pseudonym: SHA256 of the original value (hex-encoded).
-		h := sha256.Sum256(obj[field])
-		pseudonymMap[field] = "<redacted:" + hex.EncodeToString(h[:])[:16] + ">"
-		delete(obj, field)
+		// Deduplicate: identical raw JSON values share one pseudonym in this receipt.
+		key := string(raw)
+		pseudonym, seen := valueToCounter[key]
+		if !seen {
+			pseudonym = "contributor_" + strconv.Itoa(counter)
+			valueToCounter[key] = pseudonym
+			counter++
+		}
+		pseudonymMap[field] = pseudonym
+		// Replace (not delete) the field value with the pseudonym string.
+		obj[field] = json.RawMessage(strconv.Quote(pseudonym))
 	}
 
 	redacted, err := json.Marshal(obj)
@@ -143,19 +208,4 @@ func applyRedactions(payload []byte, redactFields []string) ([]byte, map[string]
 		return nil, nil, fmt.Errorf("marshal redacted payload: %w", err)
 	}
 	return redacted, pseudonymMap, nil
-}
-
-// anchorRecordSlice converts a slice of *auditv1.AnchorRecord to a
-// []map[string]any for JSON serialisation in the receipt document.
-func anchorRecordSlice(records []*auditv1.AnchorRecord) []map[string]any {
-	out := make([]map[string]any, 0, len(records))
-	for _, r := range records {
-		out = append(out, map[string]any{
-			"provider":     r.GetProvider(),
-			"external_id":  r.GetExternalId(),
-			"confirmation": r.GetConfirmation(),
-			"anchored_at":  r.GetAnchoredAt(),
-		})
-	}
-	return out
 }
