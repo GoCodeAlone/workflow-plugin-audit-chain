@@ -149,7 +149,7 @@ func TestAppend_FirstEntry_SetsEmptyPrevHash(t *testing.T) {
 	createLedger(t, db, "test-ledger")
 	a := chain.NewAppender(db)
 
-	seq, hash, err := a.Append(ctx, "test-ledger", "event.x", []byte(`{"k":1}`), "actor")
+	seq, hash, err := a.Append(ctx, "test-ledger", "event.x", []byte(`{"k":1}`), nil, "actor")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,19 +179,21 @@ func TestAppend_SecondEntry_LinksPrevHash(t *testing.T) {
 	createLedger(t, db, "test-ledger")
 	a := chain.NewAppender(db)
 
-	_, h1, err := a.Append(ctx, "test-ledger", "event.x", []byte(`{"k":1}`), "")
+	_, h1, err := a.Append(ctx, "test-ledger", "event.x", []byte(`{"k":1}`), nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, _, err = a.Append(ctx, "test-ledger", "event.x", []byte(`{"k":2}`), "")
+	_, _, err = a.Append(ctx, "test-ledger", "event.x", []byte(`{"k":2}`), nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	var prev string
-	db.QueryRowContext(ctx,
+	if err := db.QueryRowContext(ctx,
 		"SELECT prev_entry_hash FROM audit_log WHERE ledger=$1 AND sequence=2", "test-ledger",
-	).Scan(&prev)
+	).Scan(&prev); err != nil {
+		t.Fatalf("query prev_entry_hash: %v", err)
+	}
 	if prev != h1 {
 		t.Errorf("expected prev_entry_hash=%s, got %s", h1, prev)
 	}
@@ -204,7 +206,7 @@ func TestAppend_EntryHashMatchesChainComputation(t *testing.T) {
 	a := chain.NewAppender(db)
 
 	payload := []byte(`{"amount_cents":2000,"item_id":"abc"}`)
-	seq, gotHash, err := a.Append(ctx, "test-ledger", "contribution.captured", payload, "stripe")
+	seq, gotHash, err := a.Append(ctx, "test-ledger", "contribution.captured", payload, nil, "stripe")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -225,7 +227,7 @@ func TestAppend_UnknownLedger_ReturnsError(t *testing.T) {
 	db := setupTestDB(t)
 	a := chain.NewAppender(db)
 
-	_, _, err := a.Append(ctx, "no-such-ledger", "event.x", []byte(`{}`), "")
+	_, _, err := a.Append(ctx, "no-such-ledger", "event.x", []byte(`{}`), nil, "")
 	if err == nil {
 		t.Error("expected error for unknown ledger")
 	}
@@ -244,7 +246,7 @@ func TestAppendTx_ParticipatesInCallerTransaction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	seq, _, err := a.AppendTx(ctx, tx, "test-ledger", "event.x", []byte(`{}`), "actor")
+	seq, _, err := a.AppendTx(ctx, tx, "test-ledger", "event.x", []byte(`{}`), nil, "actor")
 	if err != nil {
 		_ = tx.Rollback()
 		t.Fatal(err)
@@ -259,19 +261,23 @@ func TestAppendTx_ParticipatesInCallerTransaction(t *testing.T) {
 
 	// After rollback, no row must exist for that sequence.
 	var count int
-	db.QueryRowContext(ctx,
+	if err := db.QueryRowContext(ctx,
 		"SELECT count(*) FROM audit_log WHERE ledger=$1 AND sequence=$2",
 		"test-ledger", seq,
-	).Scan(&count)
+	).Scan(&count); err != nil {
+		t.Fatalf("query audit_log count: %v", err)
+	}
 	if count != 0 {
 		t.Errorf("rolled-back entry still present: count=%d", count)
 	}
 
 	// Ledger cursor must also be rolled back (still 0).
 	var lastSeq int64
-	db.QueryRowContext(ctx,
+	if err := db.QueryRowContext(ctx,
 		"SELECT last_sequence FROM audit_ledgers WHERE ledger=$1", "test-ledger",
-	).Scan(&lastSeq)
+	).Scan(&lastSeq); err != nil {
+		t.Fatalf("query audit_ledgers last_sequence: %v", err)
+	}
 	if lastSeq != 0 {
 		t.Errorf("ledger last_sequence after rollback = %d, want 0", lastSeq)
 	}
@@ -287,7 +293,7 @@ func TestAppendTx_CommitPersistsEntry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	seq, hash, err := a.AppendTx(ctx, tx, "test-ledger", "event.x", []byte(`{"v":1}`), "")
+	seq, hash, err := a.AppendTx(ctx, tx, "test-ledger", "event.x", []byte(`{"v":1}`), nil, "")
 	if err != nil {
 		_ = tx.Rollback()
 		t.Fatal(err)
@@ -297,10 +303,12 @@ func TestAppendTx_CommitPersistsEntry(t *testing.T) {
 	}
 
 	var storedHash string
-	db.QueryRowContext(ctx,
+	if err := db.QueryRowContext(ctx,
 		"SELECT entry_hash FROM audit_log WHERE ledger=$1 AND sequence=$2",
 		"test-ledger", seq,
-	).Scan(&storedHash)
+	).Scan(&storedHash); err != nil {
+		t.Fatalf("query entry_hash: %v", err)
+	}
 	if storedHash != hash {
 		t.Errorf("stored hash %s != returned hash %s", storedHash, hash)
 	}
@@ -330,12 +338,12 @@ func TestAppend_ConcurrentAppends_MonotonicSequence(t *testing.T) {
 	)
 
 	wg.Add(goroutines)
-	for g := 0; g < goroutines; g++ {
-		go func(gID int) {
+	for range goroutines {
+		go func() {
 			defer wg.Done()
 			for i := 0; i < entriesEach; i++ {
 				seq, _, err := a.Append(ctx, "concurrent-ledger", "stress.event",
-					[]byte(`{"g":1}`), "")
+					[]byte(`{"g":1}`), nil, "")
 				mu.Lock()
 				if err != nil {
 					errs = append(errs, err)
@@ -344,7 +352,7 @@ func TestAppend_ConcurrentAppends_MonotonicSequence(t *testing.T) {
 				}
 				mu.Unlock()
 			}
-		}(g)
+		}()
 	}
 	wg.Wait()
 

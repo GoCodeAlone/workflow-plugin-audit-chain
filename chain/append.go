@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"time"
 )
 
 // Appender writes hash-chained audit entries to Postgres.
@@ -21,13 +20,14 @@ func NewAppender(db *sql.DB) *Appender {
 }
 
 // Append opens its own transaction, appends one entry to ledger, and commits.
+// metadata is stored as-is in audit_log.metadata (JSONB); pass nil if not needed.
 // Returns (sequence, entryHash, error).
-func (a *Appender) Append(ctx context.Context, ledger, eventType string, payload []byte, actor string) (int64, string, error) {
+func (a *Appender) Append(ctx context.Context, ledger, eventType string, payload, metadata []byte, actor string) (int64, string, error) {
 	tx, err := a.db.BeginTx(ctx, nil)
 	if err != nil {
 		return 0, "", fmt.Errorf("chain.Append: begin tx: %w", err)
 	}
-	seq, hash, err := a.AppendTx(ctx, tx, ledger, eventType, payload, actor)
+	seq, hash, err := a.AppendTx(ctx, tx, ledger, eventType, payload, metadata, actor)
 	if err != nil {
 		_ = tx.Rollback()
 		return 0, "", err
@@ -42,7 +42,14 @@ func (a *Appender) Append(ctx context.Context, ledger, eventType string, payload
 // The caller is responsible for commit/rollback. This is the primitive used
 // by BMW PR 11 Task 47 (step.bmw.audit_append_with_map) so that the audit
 // entry and the business record land in a single atomic transaction.
-func (a *Appender) AppendTx(ctx context.Context, tx *sql.Tx, ledger, eventType string, payload []byte, actor string) (int64, string, error) {
+// metadata is stored as-is in audit_log.metadata (JSONB); pass nil if not needed.
+func (a *Appender) AppendTx(ctx context.Context, tx *sql.Tx, ledger, eventType string, payload, metadata []byte, actor string) (int64, string, error) {
+	// 0. Enforce a server-side lock timeout so a stalled holder surfaces as an
+	//    error rather than blocking indefinitely.
+	if _, err := tx.ExecContext(ctx, `SET LOCAL lock_timeout = '5s'`); err != nil {
+		return 0, "", fmt.Errorf("chain.AppendTx: set lock_timeout: %w", err)
+	}
+
 	// 1. Lock the ledger row and read the current cursor.
 	var lastSeq int64
 	var lastHash string
@@ -70,14 +77,15 @@ func (a *Appender) AppendTx(ctx context.Context, tx *sql.Tx, ledger, eventType s
 	entryHash := EntryHash(seq, ledger, eventType, payloadHash, lastHash)
 
 	// 3. Insert the audit log row.
-	createdAt := time.Now().UTC()
+	// created_at uses DB-server NOW() to avoid application clock skew in
+	// multi-node deployments.
 	_, err = tx.ExecContext(ctx,
 		`INSERT INTO audit_log
 		        (sequence, ledger, event_type, payload, payload_hash,
-		         prev_entry_hash, entry_hash, created_at, appended_by_actor)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+		         prev_entry_hash, entry_hash, created_at, appended_by_actor, metadata)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8, $9)`,
 		seq, ledger, eventType, payload, payloadHash,
-		lastHash, entryHash, createdAt, actor,
+		lastHash, entryHash, actor, metadata,
 	)
 	if err != nil {
 		return 0, "", fmt.Errorf("chain.AppendTx: insert audit_log: %w", err)
