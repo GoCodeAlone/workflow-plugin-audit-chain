@@ -1,42 +1,84 @@
 {
     "version": "1",
-    "protoPackage": "workflow.plugin.audit.v1",
-    "protoFile": "proto/audit.proto",
     "contracts": [
         {
+            "kind": "module",
+            "type": "audit.ledger",
+            "mode": "strict_proto",
+            "config": "workflow.plugin.audit.v1.LedgerConfig"
+        },
+        {
+            "kind": "module",
+            "type": "audit.anchor_provider.opentimestamps",
+            "mode": "strict_proto",
+            "config": "workflow.plugin.audit.v1.OpenTimestampsProviderConfig"
+        },
+        {
+            "kind": "module",
+            "type": "audit.anchor_provider.git",
+            "mode": "strict_proto",
+            "config": "workflow.plugin.audit.v1.GitAnchorProviderConfig"
+        },
+        {
+            "kind": "module",
+            "type": "audit.anchor_provider.sigstore",
+            "mode": "strict_proto",
+            "config": "workflow.plugin.audit.v1.SigstoreProviderConfig"
+        },
+        {
+            "kind": "step",
             "type": "step.audit.append",
-            "inputType": "workflow.plugin.audit.v1.AppendRequest",
-            "outputType": "workflow.plugin.audit.v1.AppendResponse"
+            "mode": "strict_proto",
+            "input": "workflow.plugin.audit.v1.AppendRequest",
+            "output": "workflow.plugin.audit.v1.AppendResponse"
         },
         {
+            "kind": "step",
             "type": "step.audit.verify",
-            "inputType": "workflow.plugin.audit.v1.VerifyRequest",
-            "outputType": "workflow.plugin.audit.v1.VerifyResponse"
+            "mode": "strict_proto",
+            "input": "workflow.plugin.audit.v1.VerifyRequest",
+            "output": "workflow.plugin.audit.v1.VerifyResponse"
         },
         {
+            "kind": "step",
             "type": "step.audit.merkle_root",
-            "inputType": "workflow.plugin.audit.v1.MerkleRootRequest",
-            "outputType": "workflow.plugin.audit.v1.MerkleRootResponse"
+            "mode": "strict_proto",
+            "input": "workflow.plugin.audit.v1.MerkleRootRequest",
+            "output": "workflow.plugin.audit.v1.MerkleRootResponse"
         },
         {
+            "kind": "step",
             "type": "step.audit.anchor",
-            "inputType": "workflow.plugin.audit.v1.AnchorRequest",
-            "outputType": "workflow.plugin.audit.v1.AnchorResponse"
+            "mode": "strict_proto",
+            "input": "workflow.plugin.audit.v1.AnchorRequest",
+            "output": "workflow.plugin.audit.v1.AnchorResponse"
         },
         {
+            "kind": "step",
             "type": "step.audit.poll_anchor_confirmation",
-            "inputType": "workflow.plugin.audit.v1.PollAnchorConfirmationRequest",
-            "outputType": "workflow.plugin.audit.v1.PollAnchorConfirmationResponse"
+            "mode": "strict_proto",
+            "input": "workflow.plugin.audit.v1.PollAnchorConfirmationRequest",
+            "output": "workflow.plugin.audit.v1.PollAnchorConfirmationResponse"
         },
         {
+            "kind": "step",
             "type": "step.audit.proof",
-            "inputType": "workflow.plugin.audit.v1.ProofRequest",
-            "outputType": "workflow.plugin.audit.v1.ProofResponse"
+            "mode": "strict_proto",
+            "input": "workflow.plugin.audit.v1.ProofRequest",
+            "output": "workflow.plugin.audit.v1.ProofResponse"
         },
         {
+            "kind": "step",
             "type": "step.audit.public_receipt",
-            "inputType": "workflow.plugin.audit.v1.PublicReceiptRequest",
-            "outputType": "workflow.plugin.audit.v1.PublicReceiptResponse"
+            "mode": "strict_proto",
+            "input": "workflow.plugin.audit.v1.PublicReceiptRequest",
+            "output": "workflow.plugin.audit.v1.PublicReceiptResponse"
+        },
+        {
+            "kind": "trigger",
+            "type": "trigger.audit.entry_appended",
+            "mode": "strict_proto",
+            "output": "workflow.plugin.audit.v1.AuditEntry"
         }
     ]
 }
