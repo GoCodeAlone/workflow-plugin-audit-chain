@@ -118,12 +118,9 @@ func applyMigrations(t *testing.T, db *sql.DB) {
 }
 
 // buildBinary compiles the plugin binary into a temp directory and returns its
-// path.  Skipped in short mode (go test -short).
+// path.
 func buildBinary(t *testing.T) string {
 	t.Helper()
-	if testing.Short() {
-		t.Skip("skipping binary build in short mode")
-	}
 
 	_, thisFile, _, ok := runtime.Caller(0)
 	if !ok {
@@ -191,7 +188,14 @@ func mustNoRPCErr(t *testing.T, label string, err error, respErr string) {
 // All step executions go through real gRPC proto serialisation: the test
 // process packs each request as anypb.Any, sends it over a TCP gRPC connection
 // to the plugin subprocess, and unpacks the typed response the same way.
+//
+// Requires Docker (for the Postgres container) and the Go toolchain (to compile
+// the plugin binary).  Run with -short to skip.
 func TestE2E_AuditChainScenario(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test: requires Docker and Go toolchain (run without -short)")
+	}
+
 	const ledger = "e2e-ledger"
 	ctx := context.Background()
 
@@ -226,7 +230,11 @@ func TestE2E_AuditChainScenario(t *testing.T) {
 	startResp, err := pbClient.StartModule(ctx, &pb.HandleRequest{HandleId: modHandle})
 	mustNoRPCErr(t, "StartModule", err, startResp.GetError())
 	t.Cleanup(func() {
-		_, _ = pbClient.StopModule(ctx, &pb.HandleRequest{HandleId: modHandle})
+		if resp, err := pbClient.StopModule(ctx, &pb.HandleRequest{HandleId: modHandle}); err != nil {
+			t.Logf("StopModule: gRPC error: %v", err)
+		} else if resp.GetError() != "" {
+			t.Logf("StopModule: plugin error: %s", resp.GetError())
+		}
 	})
 
 	// Insert the audit_ledgers cursor row (normally done by a provisioning step).
