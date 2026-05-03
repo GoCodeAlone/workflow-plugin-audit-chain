@@ -78,7 +78,7 @@
             "kind": "trigger",
             "type": "trigger.audit.entry_appended",
             "mode": "strict_proto",
-            "output": "workflow.plugin.audit.v1.AuditEntry"
+            "output": "workflow.plugin.audit.v1.Entry"
         }
     ]
 }
