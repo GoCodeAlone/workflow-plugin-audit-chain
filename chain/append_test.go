@@ -149,7 +149,7 @@ func TestAppend_FirstEntry_SetsEmptyPrevHash(t *testing.T) {
 	createLedger(t, db, "test-ledger")
 	a := chain.NewAppender(db)
 
-	seq, hash, err := a.Append(ctx, "test-ledger", "event.x", []byte(`{"k":1}`), nil, "actor")
+	seq, hash, createdAt, err := a.Append(ctx, "test-ledger", "event.x", []byte(`{"k":1}`), nil, "actor")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,6 +158,9 @@ func TestAppend_FirstEntry_SetsEmptyPrevHash(t *testing.T) {
 	}
 	if len(hash) != 64 {
 		t.Errorf("expected 64-char hash, got %d: %s", len(hash), hash)
+	}
+	if createdAt.IsZero() {
+		t.Error("Append returned zero createdAt; expected DB-assigned timestamp")
 	}
 
 	// First entry must have empty prev_entry_hash.
@@ -179,11 +182,11 @@ func TestAppend_SecondEntry_LinksPrevHash(t *testing.T) {
 	createLedger(t, db, "test-ledger")
 	a := chain.NewAppender(db)
 
-	_, h1, err := a.Append(ctx, "test-ledger", "event.x", []byte(`{"k":1}`), nil, "")
+	_, h1, _, err := a.Append(ctx, "test-ledger", "event.x", []byte(`{"k":1}`), nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, _, err = a.Append(ctx, "test-ledger", "event.x", []byte(`{"k":2}`), nil, "")
+	_, _, _, err = a.Append(ctx, "test-ledger", "event.x", []byte(`{"k":2}`), nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -206,7 +209,7 @@ func TestAppend_EntryHashMatchesChainComputation(t *testing.T) {
 	a := chain.NewAppender(db)
 
 	payload := []byte(`{"amount_cents":2000,"item_id":"abc"}`)
-	seq, gotHash, err := a.Append(ctx, "test-ledger", "contribution.captured", payload, nil, "stripe")
+	seq, gotHash, _, err := a.Append(ctx, "test-ledger", "contribution.captured", payload, nil, "stripe")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,7 +230,7 @@ func TestAppend_UnknownLedger_ReturnsError(t *testing.T) {
 	db := setupTestDB(t)
 	a := chain.NewAppender(db)
 
-	_, _, err := a.Append(ctx, "no-such-ledger", "event.x", []byte(`{}`), nil, "")
+	_, _, _, err := a.Append(ctx, "no-such-ledger", "event.x", []byte(`{}`), nil, "")
 	if err == nil {
 		t.Error("expected error for unknown ledger")
 	}
@@ -246,7 +249,7 @@ func TestAppendTx_ParticipatesInCallerTransaction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	seq, _, err := a.AppendTx(ctx, tx, "test-ledger", "event.x", []byte(`{}`), nil, "actor")
+	seq, _, _, err := a.AppendTx(ctx, tx, "test-ledger", "event.x", []byte(`{}`), nil, "actor")
 	if err != nil {
 		_ = tx.Rollback()
 		t.Fatal(err)
@@ -293,7 +296,7 @@ func TestAppendTx_CommitPersistsEntry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	seq, hash, err := a.AppendTx(ctx, tx, "test-ledger", "event.x", []byte(`{"v":1}`), nil, "")
+	seq, hash, _, err := a.AppendTx(ctx, tx, "test-ledger", "event.x", []byte(`{"v":1}`), nil, "")
 	if err != nil {
 		_ = tx.Rollback()
 		t.Fatal(err)
@@ -342,7 +345,7 @@ func TestAppend_ConcurrentAppends_MonotonicSequence(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for i := 0; i < entriesEach; i++ {
-				seq, _, err := a.Append(ctx, "concurrent-ledger", "stress.event",
+				seq, _, _, err := a.Append(ctx, "concurrent-ledger", "stress.event",
 					[]byte(`{"g":1}`), nil, "")
 				mu.Lock()
 				if err != nil {

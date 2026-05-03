@@ -100,11 +100,14 @@ func AnchorHandler(
 			return nil, fmt.Errorf("step.audit.anchor: provider %q: %w", name, err)
 		}
 
-		// Persist to audit_anchors.
+		// Persist to audit_anchors. ON CONFLICT DO NOTHING makes this idempotent:
+		// a retried anchor step for the same (ledger, provider, range) silently
+		// skips the INSERT rather than failing with a unique-constraint violation.
 		if _, err := db.ExecContext(ctx, `
 			INSERT INTO audit_anchors
 				(ledger, range_start, range_end, merkle_root, provider, external_id, proof_data, confirmation, anchored_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+			ON CONFLICT (ledger, provider, range_start, range_end) DO NOTHING`,
 			input.GetLedger(), startSeq, endSeq, merkleRoot,
 			a.ProviderName, a.ExternalID, a.ProofData, string(a.Confirmation),
 			a.AnchoredAt.UTC(),

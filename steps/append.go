@@ -38,7 +38,7 @@ func AppendHandler(
 		return nil, fmt.Errorf("step.audit.append: ledger %q not registered; ensure the audit.ledger module is initialised", input.GetLedger())
 	}
 
-	seq, entryHash, err := appender.Append(
+	seq, entryHash, createdAt, err := appender.Append(
 		ctx,
 		input.GetLedger(),
 		input.GetEventType(),
@@ -54,7 +54,7 @@ func AppendHandler(
 		Output: &auditv1.AppendResponse{
 			Sequence:  seq,
 			EntryHash: entryHash,
-			CreatedAt: time.Now().UTC().Format(time.RFC3339),
+			CreatedAt: createdAt.UTC().Format(time.RFC3339),
 		},
 	}, nil
 }

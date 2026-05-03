@@ -88,8 +88,12 @@ func PollAnchorConfirmationHandler(
 		}, nil
 	}
 
+	// Forward-only ordering guard: prevent downgrade (finalized→confirmed,
+	// confirmed→pending). A provider returning a lower confirmation level must
+	// not overwrite a more advanced state in the DB.
+	confirmationOrder := map[string]int{"pending": 0, "confirmed": 1, "finalized": 2}
 	currentConfirmation := string(v.Confirmation)
-	transitioned := currentConfirmation != prevConfirmation
+	transitioned := confirmationOrder[currentConfirmation] > confirmationOrder[prevConfirmation]
 
 	if transitioned {
 		_, err = db.ExecContext(ctx, `

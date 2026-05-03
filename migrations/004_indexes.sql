@@ -8,6 +8,11 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_event_type_created
 CREATE INDEX IF NOT EXISTS idx_audit_anchors_ledger_range
     ON audit_anchors(ledger, range_start, range_end);
 
+-- Unique anchor per (ledger, provider, range) — guards AnchorHandler idempotency
+-- so retried calls with the same range do not produce duplicate anchor rows.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_audit_anchors_unique_anchor
+    ON audit_anchors(ledger, provider, range_start, range_end);
+
 -- Partial index for polling pending/confirmed anchors (skip finalized rows).
 CREATE INDEX IF NOT EXISTS idx_audit_anchors_pending
     ON audit_anchors(provider, confirmation)
