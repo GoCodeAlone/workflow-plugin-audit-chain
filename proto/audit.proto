@@ -18,6 +18,53 @@ message LedgerConfig {
   int32 anchor_min_entries = 5;
   // payload_schema is an optional JSON Schema (bytes) for payload validation at append time.
   bytes payload_schema = 6;
+  // dsn is the PostgreSQL connection string for the backing store
+  // (e.g. "postgres://user:pass@host/db?sslmode=disable").
+  string dsn = 7;
+}
+
+// ─── anchor provider module configs ──────────────────────────────────────────
+
+// OpenTimestampsProviderConfig is the typed config for audit.anchor_provider.opentimestamps.
+message OpenTimestampsProviderConfig {
+  // calendar_servers lists the OTS calendar server base URLs to submit to.
+  // At least one is required.
+  repeated string calendar_servers = 1;
+  // http_timeout_ms is the per-request HTTP timeout in milliseconds.
+  // 0 means use the default (30 000 ms).
+  int64 http_timeout_ms = 2;
+}
+
+// GitAnchorProviderConfig is the typed config for audit.anchor_provider.git.
+message GitAnchorProviderConfig {
+  // remote is the git remote URL (file path, https, git+ssh, etc.). Required.
+  string remote = 1;
+  // branch is the branch to push anchors to. Defaults to "main".
+  string branch = 2;
+  // commit_template is a Go text/template string for the commit message.
+  // Defaults to "anchor: {{.MerkleRoot}}".
+  string commit_template = 3;
+  // author_name is the git commit author name. Defaults to "audit-chain-bot".
+  string author_name = 4;
+  // author_email is the git commit author email. Defaults to "audit-chain-bot@localhost".
+  string author_email = 5;
+  // use_ssh_agent uses the system SSH agent for authentication.
+  bool use_ssh_agent = 6;
+  // ssh_key_path is the path to a PEM-encoded private key file.
+  string ssh_key_path = 7;
+  // ssh_key_password is the passphrase for the PEM key at ssh_key_path.
+  string ssh_key_password = 8;
+  // http_username provides HTTP Basic Auth credentials for HTTPS remotes.
+  string http_username = 9;
+  // http_password provides HTTP Basic Auth credentials (or PAT) for HTTPS remotes.
+  string http_password = 10;
+}
+
+// SigstoreProviderConfig is the typed config for audit.anchor_provider.sigstore.
+message SigstoreProviderConfig {
+  // rekor_url is the base URL of the Rekor instance.
+  // Defaults to "https://rekor.sigstore.dev" when empty.
+  string rekor_url = 1;
 }
 
 // ─── step.audit.append ───────────────────────────────────────────────────────
@@ -141,6 +188,9 @@ message PollAnchorConfirmationRequest {
   string external_id = 3;
   // proof_data is the opaque provider-specific proof bytes stored in audit_anchors.proof_data.
   bytes proof_data = 4;
+  // ledger identifies which ledger's DB handle to use when updating
+  // audit_anchors.confirmation after a status change.
+  string ledger = 5;
 }
 
 // PollAnchorConfirmationResponse is the output from step.audit.poll_anchor_confirmation.

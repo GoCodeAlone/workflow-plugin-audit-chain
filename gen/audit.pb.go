@@ -37,6 +37,9 @@ type LedgerConfig struct {
 	AnchorMinEntries int32 `protobuf:"varint,5,opt,name=anchor_min_entries,json=anchorMinEntries,proto3" json:"anchor_min_entries,omitempty"`
 	// payload_schema is an optional JSON Schema (bytes) for payload validation at append time.
 	PayloadSchema []byte `protobuf:"bytes,6,opt,name=payload_schema,json=payloadSchema,proto3" json:"payload_schema,omitempty"`
+	// dsn is the PostgreSQL connection string for the backing store
+	// (e.g. "postgres://user:pass@host/db?sslmode=disable").
+	Dsn           string `protobuf:"bytes,7,opt,name=dsn,proto3" json:"dsn,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -113,6 +116,245 @@ func (x *LedgerConfig) GetPayloadSchema() []byte {
 	return nil
 }
 
+func (x *LedgerConfig) GetDsn() string {
+	if x != nil {
+		return x.Dsn
+	}
+	return ""
+}
+
+// OpenTimestampsProviderConfig is the typed config for audit.anchor_provider.opentimestamps.
+type OpenTimestampsProviderConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// calendar_servers lists the OTS calendar server base URLs to submit to.
+	// At least one is required.
+	CalendarServers []string `protobuf:"bytes,1,rep,name=calendar_servers,json=calendarServers,proto3" json:"calendar_servers,omitempty"`
+	// http_timeout_ms is the per-request HTTP timeout in milliseconds.
+	// 0 means use the default (30 000 ms).
+	HttpTimeoutMs int64 `protobuf:"varint,2,opt,name=http_timeout_ms,json=httpTimeoutMs,proto3" json:"http_timeout_ms,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OpenTimestampsProviderConfig) Reset() {
+	*x = OpenTimestampsProviderConfig{}
+	mi := &file_audit_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OpenTimestampsProviderConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OpenTimestampsProviderConfig) ProtoMessage() {}
+
+func (x *OpenTimestampsProviderConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_audit_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OpenTimestampsProviderConfig.ProtoReflect.Descriptor instead.
+func (*OpenTimestampsProviderConfig) Descriptor() ([]byte, []int) {
+	return file_audit_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *OpenTimestampsProviderConfig) GetCalendarServers() []string {
+	if x != nil {
+		return x.CalendarServers
+	}
+	return nil
+}
+
+func (x *OpenTimestampsProviderConfig) GetHttpTimeoutMs() int64 {
+	if x != nil {
+		return x.HttpTimeoutMs
+	}
+	return 0
+}
+
+// GitAnchorProviderConfig is the typed config for audit.anchor_provider.git.
+type GitAnchorProviderConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// remote is the git remote URL (file path, https, git+ssh, etc.). Required.
+	Remote string `protobuf:"bytes,1,opt,name=remote,proto3" json:"remote,omitempty"`
+	// branch is the branch to push anchors to. Defaults to "main".
+	Branch string `protobuf:"bytes,2,opt,name=branch,proto3" json:"branch,omitempty"`
+	// commit_template is a Go text/template string for the commit message.
+	// Defaults to "anchor: {{.MerkleRoot}}".
+	CommitTemplate string `protobuf:"bytes,3,opt,name=commit_template,json=commitTemplate,proto3" json:"commit_template,omitempty"`
+	// author_name is the git commit author name. Defaults to "audit-chain-bot".
+	AuthorName string `protobuf:"bytes,4,opt,name=author_name,json=authorName,proto3" json:"author_name,omitempty"`
+	// author_email is the git commit author email. Defaults to "audit-chain-bot@localhost".
+	AuthorEmail string `protobuf:"bytes,5,opt,name=author_email,json=authorEmail,proto3" json:"author_email,omitempty"`
+	// use_ssh_agent uses the system SSH agent for authentication.
+	UseSshAgent bool `protobuf:"varint,6,opt,name=use_ssh_agent,json=useSshAgent,proto3" json:"use_ssh_agent,omitempty"`
+	// ssh_key_path is the path to a PEM-encoded private key file.
+	SshKeyPath string `protobuf:"bytes,7,opt,name=ssh_key_path,json=sshKeyPath,proto3" json:"ssh_key_path,omitempty"`
+	// ssh_key_password is the passphrase for the PEM key at ssh_key_path.
+	SshKeyPassword string `protobuf:"bytes,8,opt,name=ssh_key_password,json=sshKeyPassword,proto3" json:"ssh_key_password,omitempty"`
+	// http_username provides HTTP Basic Auth credentials for HTTPS remotes.
+	HttpUsername string `protobuf:"bytes,9,opt,name=http_username,json=httpUsername,proto3" json:"http_username,omitempty"`
+	// http_password provides HTTP Basic Auth credentials (or PAT) for HTTPS remotes.
+	HttpPassword  string `protobuf:"bytes,10,opt,name=http_password,json=httpPassword,proto3" json:"http_password,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GitAnchorProviderConfig) Reset() {
+	*x = GitAnchorProviderConfig{}
+	mi := &file_audit_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GitAnchorProviderConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GitAnchorProviderConfig) ProtoMessage() {}
+
+func (x *GitAnchorProviderConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_audit_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GitAnchorProviderConfig.ProtoReflect.Descriptor instead.
+func (*GitAnchorProviderConfig) Descriptor() ([]byte, []int) {
+	return file_audit_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *GitAnchorProviderConfig) GetRemote() string {
+	if x != nil {
+		return x.Remote
+	}
+	return ""
+}
+
+func (x *GitAnchorProviderConfig) GetBranch() string {
+	if x != nil {
+		return x.Branch
+	}
+	return ""
+}
+
+func (x *GitAnchorProviderConfig) GetCommitTemplate() string {
+	if x != nil {
+		return x.CommitTemplate
+	}
+	return ""
+}
+
+func (x *GitAnchorProviderConfig) GetAuthorName() string {
+	if x != nil {
+		return x.AuthorName
+	}
+	return ""
+}
+
+func (x *GitAnchorProviderConfig) GetAuthorEmail() string {
+	if x != nil {
+		return x.AuthorEmail
+	}
+	return ""
+}
+
+func (x *GitAnchorProviderConfig) GetUseSshAgent() bool {
+	if x != nil {
+		return x.UseSshAgent
+	}
+	return false
+}
+
+func (x *GitAnchorProviderConfig) GetSshKeyPath() string {
+	if x != nil {
+		return x.SshKeyPath
+	}
+	return ""
+}
+
+func (x *GitAnchorProviderConfig) GetSshKeyPassword() string {
+	if x != nil {
+		return x.SshKeyPassword
+	}
+	return ""
+}
+
+func (x *GitAnchorProviderConfig) GetHttpUsername() string {
+	if x != nil {
+		return x.HttpUsername
+	}
+	return ""
+}
+
+func (x *GitAnchorProviderConfig) GetHttpPassword() string {
+	if x != nil {
+		return x.HttpPassword
+	}
+	return ""
+}
+
+// SigstoreProviderConfig is the typed config for audit.anchor_provider.sigstore.
+type SigstoreProviderConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// rekor_url is the base URL of the Rekor instance.
+	// Defaults to "https://rekor.sigstore.dev" when empty.
+	RekorUrl      string `protobuf:"bytes,1,opt,name=rekor_url,json=rekorUrl,proto3" json:"rekor_url,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SigstoreProviderConfig) Reset() {
+	*x = SigstoreProviderConfig{}
+	mi := &file_audit_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SigstoreProviderConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SigstoreProviderConfig) ProtoMessage() {}
+
+func (x *SigstoreProviderConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_audit_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SigstoreProviderConfig.ProtoReflect.Descriptor instead.
+func (*SigstoreProviderConfig) Descriptor() ([]byte, []int) {
+	return file_audit_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *SigstoreProviderConfig) GetRekorUrl() string {
+	if x != nil {
+		return x.RekorUrl
+	}
+	return ""
+}
+
 // AppendRequest is the input for step.audit.append.
 type AppendRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -132,7 +374,7 @@ type AppendRequest struct {
 
 func (x *AppendRequest) Reset() {
 	*x = AppendRequest{}
-	mi := &file_audit_proto_msgTypes[1]
+	mi := &file_audit_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -144,7 +386,7 @@ func (x *AppendRequest) String() string {
 func (*AppendRequest) ProtoMessage() {}
 
 func (x *AppendRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_audit_proto_msgTypes[1]
+	mi := &file_audit_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -157,7 +399,7 @@ func (x *AppendRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AppendRequest.ProtoReflect.Descriptor instead.
 func (*AppendRequest) Descriptor() ([]byte, []int) {
-	return file_audit_proto_rawDescGZIP(), []int{1}
+	return file_audit_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *AppendRequest) GetLedger() string {
@@ -210,7 +452,7 @@ type AppendResponse struct {
 
 func (x *AppendResponse) Reset() {
 	*x = AppendResponse{}
-	mi := &file_audit_proto_msgTypes[2]
+	mi := &file_audit_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -222,7 +464,7 @@ func (x *AppendResponse) String() string {
 func (*AppendResponse) ProtoMessage() {}
 
 func (x *AppendResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_audit_proto_msgTypes[2]
+	mi := &file_audit_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -235,7 +477,7 @@ func (x *AppendResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AppendResponse.ProtoReflect.Descriptor instead.
 func (*AppendResponse) Descriptor() ([]byte, []int) {
-	return file_audit_proto_rawDescGZIP(), []int{2}
+	return file_audit_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *AppendResponse) GetSequence() int64 {
@@ -274,7 +516,7 @@ type VerifyRequest struct {
 
 func (x *VerifyRequest) Reset() {
 	*x = VerifyRequest{}
-	mi := &file_audit_proto_msgTypes[3]
+	mi := &file_audit_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -286,7 +528,7 @@ func (x *VerifyRequest) String() string {
 func (*VerifyRequest) ProtoMessage() {}
 
 func (x *VerifyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_audit_proto_msgTypes[3]
+	mi := &file_audit_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -299,7 +541,7 @@ func (x *VerifyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VerifyRequest.ProtoReflect.Descriptor instead.
 func (*VerifyRequest) Descriptor() ([]byte, []int) {
-	return file_audit_proto_rawDescGZIP(), []int{3}
+	return file_audit_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *VerifyRequest) GetLedger() string {
@@ -340,7 +582,7 @@ type VerifyResponse struct {
 
 func (x *VerifyResponse) Reset() {
 	*x = VerifyResponse{}
-	mi := &file_audit_proto_msgTypes[4]
+	mi := &file_audit_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -352,7 +594,7 @@ func (x *VerifyResponse) String() string {
 func (*VerifyResponse) ProtoMessage() {}
 
 func (x *VerifyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_audit_proto_msgTypes[4]
+	mi := &file_audit_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -365,7 +607,7 @@ func (x *VerifyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VerifyResponse.ProtoReflect.Descriptor instead.
 func (*VerifyResponse) Descriptor() ([]byte, []int) {
-	return file_audit_proto_rawDescGZIP(), []int{4}
+	return file_audit_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *VerifyResponse) GetValid() bool {
@@ -411,7 +653,7 @@ type MerkleRootRequest struct {
 
 func (x *MerkleRootRequest) Reset() {
 	*x = MerkleRootRequest{}
-	mi := &file_audit_proto_msgTypes[5]
+	mi := &file_audit_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -423,7 +665,7 @@ func (x *MerkleRootRequest) String() string {
 func (*MerkleRootRequest) ProtoMessage() {}
 
 func (x *MerkleRootRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_audit_proto_msgTypes[5]
+	mi := &file_audit_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -436,7 +678,7 @@ func (x *MerkleRootRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MerkleRootRequest.ProtoReflect.Descriptor instead.
 func (*MerkleRootRequest) Descriptor() ([]byte, []int) {
-	return file_audit_proto_rawDescGZIP(), []int{5}
+	return file_audit_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *MerkleRootRequest) GetLedger() string {
@@ -478,7 +720,7 @@ type MerkleRootResponse struct {
 
 func (x *MerkleRootResponse) Reset() {
 	*x = MerkleRootResponse{}
-	mi := &file_audit_proto_msgTypes[6]
+	mi := &file_audit_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -490,7 +732,7 @@ func (x *MerkleRootResponse) String() string {
 func (*MerkleRootResponse) ProtoMessage() {}
 
 func (x *MerkleRootResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_audit_proto_msgTypes[6]
+	mi := &file_audit_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -503,7 +745,7 @@ func (x *MerkleRootResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MerkleRootResponse.ProtoReflect.Descriptor instead.
 func (*MerkleRootResponse) Descriptor() ([]byte, []int) {
-	return file_audit_proto_rawDescGZIP(), []int{6}
+	return file_audit_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *MerkleRootResponse) GetRoot() string {
@@ -551,7 +793,7 @@ type AnchorRequest struct {
 
 func (x *AnchorRequest) Reset() {
 	*x = AnchorRequest{}
-	mi := &file_audit_proto_msgTypes[7]
+	mi := &file_audit_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -563,7 +805,7 @@ func (x *AnchorRequest) String() string {
 func (*AnchorRequest) ProtoMessage() {}
 
 func (x *AnchorRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_audit_proto_msgTypes[7]
+	mi := &file_audit_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -576,7 +818,7 @@ func (x *AnchorRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AnchorRequest.ProtoReflect.Descriptor instead.
 func (*AnchorRequest) Descriptor() ([]byte, []int) {
-	return file_audit_proto_rawDescGZIP(), []int{7}
+	return file_audit_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *AnchorRequest) GetLedger() string {
@@ -618,7 +860,7 @@ type AnchorResponse struct {
 
 func (x *AnchorResponse) Reset() {
 	*x = AnchorResponse{}
-	mi := &file_audit_proto_msgTypes[8]
+	mi := &file_audit_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -630,7 +872,7 @@ func (x *AnchorResponse) String() string {
 func (*AnchorResponse) ProtoMessage() {}
 
 func (x *AnchorResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_audit_proto_msgTypes[8]
+	mi := &file_audit_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -643,7 +885,7 @@ func (x *AnchorResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AnchorResponse.ProtoReflect.Descriptor instead.
 func (*AnchorResponse) Descriptor() ([]byte, []int) {
-	return file_audit_proto_rawDescGZIP(), []int{8}
+	return file_audit_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *AnchorResponse) GetAnchors() []*AnchorRecord {
@@ -670,7 +912,7 @@ type AnchorRecord struct {
 
 func (x *AnchorRecord) Reset() {
 	*x = AnchorRecord{}
-	mi := &file_audit_proto_msgTypes[9]
+	mi := &file_audit_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -682,7 +924,7 @@ func (x *AnchorRecord) String() string {
 func (*AnchorRecord) ProtoMessage() {}
 
 func (x *AnchorRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_audit_proto_msgTypes[9]
+	mi := &file_audit_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -695,7 +937,7 @@ func (x *AnchorRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AnchorRecord.ProtoReflect.Descriptor instead.
 func (*AnchorRecord) Descriptor() ([]byte, []int) {
-	return file_audit_proto_rawDescGZIP(), []int{9}
+	return file_audit_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *AnchorRecord) GetProvider() string {
@@ -738,14 +980,17 @@ type PollAnchorConfirmationRequest struct {
 	// external_id is the provider's anchor reference stored in audit_anchors.external_id.
 	ExternalId string `protobuf:"bytes,3,opt,name=external_id,json=externalId,proto3" json:"external_id,omitempty"`
 	// proof_data is the opaque provider-specific proof bytes stored in audit_anchors.proof_data.
-	ProofData     []byte `protobuf:"bytes,4,opt,name=proof_data,json=proofData,proto3" json:"proof_data,omitempty"`
+	ProofData []byte `protobuf:"bytes,4,opt,name=proof_data,json=proofData,proto3" json:"proof_data,omitempty"`
+	// ledger identifies which ledger's DB handle to use when updating
+	// audit_anchors.confirmation after a status change.
+	Ledger        string `protobuf:"bytes,5,opt,name=ledger,proto3" json:"ledger,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PollAnchorConfirmationRequest) Reset() {
 	*x = PollAnchorConfirmationRequest{}
-	mi := &file_audit_proto_msgTypes[10]
+	mi := &file_audit_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -757,7 +1002,7 @@ func (x *PollAnchorConfirmationRequest) String() string {
 func (*PollAnchorConfirmationRequest) ProtoMessage() {}
 
 func (x *PollAnchorConfirmationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_audit_proto_msgTypes[10]
+	mi := &file_audit_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -770,7 +1015,7 @@ func (x *PollAnchorConfirmationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PollAnchorConfirmationRequest.ProtoReflect.Descriptor instead.
 func (*PollAnchorConfirmationRequest) Descriptor() ([]byte, []int) {
-	return file_audit_proto_rawDescGZIP(), []int{10}
+	return file_audit_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *PollAnchorConfirmationRequest) GetAnchorId() string {
@@ -801,6 +1046,13 @@ func (x *PollAnchorConfirmationRequest) GetProofData() []byte {
 	return nil
 }
 
+func (x *PollAnchorConfirmationRequest) GetLedger() string {
+	if x != nil {
+		return x.Ledger
+	}
+	return ""
+}
+
 // PollAnchorConfirmationResponse is the output from step.audit.poll_anchor_confirmation.
 //
 // Transient errors (calendar-server unreachable, network partition) MUST be returned
@@ -829,7 +1081,7 @@ type PollAnchorConfirmationResponse struct {
 
 func (x *PollAnchorConfirmationResponse) Reset() {
 	*x = PollAnchorConfirmationResponse{}
-	mi := &file_audit_proto_msgTypes[11]
+	mi := &file_audit_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -841,7 +1093,7 @@ func (x *PollAnchorConfirmationResponse) String() string {
 func (*PollAnchorConfirmationResponse) ProtoMessage() {}
 
 func (x *PollAnchorConfirmationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_audit_proto_msgTypes[11]
+	mi := &file_audit_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -854,7 +1106,7 @@ func (x *PollAnchorConfirmationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PollAnchorConfirmationResponse.ProtoReflect.Descriptor instead.
 func (*PollAnchorConfirmationResponse) Descriptor() ([]byte, []int) {
-	return file_audit_proto_rawDescGZIP(), []int{11}
+	return file_audit_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *PollAnchorConfirmationResponse) GetPreviousConfirmation() string {
@@ -912,7 +1164,7 @@ type ProofRequest struct {
 
 func (x *ProofRequest) Reset() {
 	*x = ProofRequest{}
-	mi := &file_audit_proto_msgTypes[12]
+	mi := &file_audit_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -924,7 +1176,7 @@ func (x *ProofRequest) String() string {
 func (*ProofRequest) ProtoMessage() {}
 
 func (x *ProofRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_audit_proto_msgTypes[12]
+	mi := &file_audit_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -937,7 +1189,7 @@ func (x *ProofRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProofRequest.ProtoReflect.Descriptor instead.
 func (*ProofRequest) Descriptor() ([]byte, []int) {
-	return file_audit_proto_rawDescGZIP(), []int{12}
+	return file_audit_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ProofRequest) GetLedger() string {
@@ -971,7 +1223,7 @@ type ProofResponse struct {
 
 func (x *ProofResponse) Reset() {
 	*x = ProofResponse{}
-	mi := &file_audit_proto_msgTypes[13]
+	mi := &file_audit_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -983,7 +1235,7 @@ func (x *ProofResponse) String() string {
 func (*ProofResponse) ProtoMessage() {}
 
 func (x *ProofResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_audit_proto_msgTypes[13]
+	mi := &file_audit_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -996,7 +1248,7 @@ func (x *ProofResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProofResponse.ProtoReflect.Descriptor instead.
 func (*ProofResponse) Descriptor() ([]byte, []int) {
-	return file_audit_proto_rawDescGZIP(), []int{13}
+	return file_audit_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ProofResponse) GetEntry() *Entry {
@@ -1066,7 +1318,7 @@ type Entry struct {
 
 func (x *Entry) Reset() {
 	*x = Entry{}
-	mi := &file_audit_proto_msgTypes[14]
+	mi := &file_audit_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1078,7 +1330,7 @@ func (x *Entry) String() string {
 func (*Entry) ProtoMessage() {}
 
 func (x *Entry) ProtoReflect() protoreflect.Message {
-	mi := &file_audit_proto_msgTypes[14]
+	mi := &file_audit_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1091,7 +1343,7 @@ func (x *Entry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Entry.ProtoReflect.Descriptor instead.
 func (*Entry) Descriptor() ([]byte, []int) {
-	return file_audit_proto_rawDescGZIP(), []int{14}
+	return file_audit_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *Entry) GetSequence() int64 {
@@ -1174,7 +1426,7 @@ type PublicReceiptRequest struct {
 
 func (x *PublicReceiptRequest) Reset() {
 	*x = PublicReceiptRequest{}
-	mi := &file_audit_proto_msgTypes[15]
+	mi := &file_audit_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1186,7 +1438,7 @@ func (x *PublicReceiptRequest) String() string {
 func (*PublicReceiptRequest) ProtoMessage() {}
 
 func (x *PublicReceiptRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_audit_proto_msgTypes[15]
+	mi := &file_audit_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1199,7 +1451,7 @@ func (x *PublicReceiptRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PublicReceiptRequest.ProtoReflect.Descriptor instead.
 func (*PublicReceiptRequest) Descriptor() ([]byte, []int) {
-	return file_audit_proto_rawDescGZIP(), []int{15}
+	return file_audit_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *PublicReceiptRequest) GetLedger() string {
@@ -1238,7 +1490,7 @@ type PublicReceiptResponse struct {
 
 func (x *PublicReceiptResponse) Reset() {
 	*x = PublicReceiptResponse{}
-	mi := &file_audit_proto_msgTypes[16]
+	mi := &file_audit_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1250,7 +1502,7 @@ func (x *PublicReceiptResponse) String() string {
 func (*PublicReceiptResponse) ProtoMessage() {}
 
 func (x *PublicReceiptResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_audit_proto_msgTypes[16]
+	mi := &file_audit_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1263,7 +1515,7 @@ func (x *PublicReceiptResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PublicReceiptResponse.ProtoReflect.Descriptor instead.
 func (*PublicReceiptResponse) Descriptor() ([]byte, []int) {
-	return file_audit_proto_rawDescGZIP(), []int{16}
+	return file_audit_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *PublicReceiptResponse) GetReceiptUrl() string {
@@ -1291,14 +1543,34 @@ var File_audit_proto protoreflect.FileDescriptor
 
 const file_audit_proto_rawDesc = "" +
 	"\n" +
-	"\vaudit.proto\x12\x18workflow.plugin.audit.v1\"\xed\x01\n" +
+	"\vaudit.proto\x12\x18workflow.plugin.audit.v1\"\xff\x01\n" +
 	"\fLedgerConfig\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12)\n" +
 	"\x10anchor_providers\x18\x03 \x03(\tR\x0fanchorProviders\x12'\n" +
 	"\x0fanchor_schedule\x18\x04 \x01(\tR\x0eanchorSchedule\x12,\n" +
 	"\x12anchor_min_entries\x18\x05 \x01(\x05R\x10anchorMinEntries\x12%\n" +
-	"\x0epayload_schema\x18\x06 \x01(\fR\rpayloadSchema\"\x92\x01\n" +
+	"\x0epayload_schema\x18\x06 \x01(\fR\rpayloadSchema\x12\x10\n" +
+	"\x03dsn\x18\a \x01(\tR\x03dsn\"q\n" +
+	"\x1cOpenTimestampsProviderConfig\x12)\n" +
+	"\x10calendar_servers\x18\x01 \x03(\tR\x0fcalendarServers\x12&\n" +
+	"\x0fhttp_timeout_ms\x18\x02 \x01(\x03R\rhttpTimeoutMs\"\xf0\x02\n" +
+	"\x17GitAnchorProviderConfig\x12\x16\n" +
+	"\x06remote\x18\x01 \x01(\tR\x06remote\x12\x16\n" +
+	"\x06branch\x18\x02 \x01(\tR\x06branch\x12'\n" +
+	"\x0fcommit_template\x18\x03 \x01(\tR\x0ecommitTemplate\x12\x1f\n" +
+	"\vauthor_name\x18\x04 \x01(\tR\n" +
+	"authorName\x12!\n" +
+	"\fauthor_email\x18\x05 \x01(\tR\vauthorEmail\x12\"\n" +
+	"\ruse_ssh_agent\x18\x06 \x01(\bR\vuseSshAgent\x12 \n" +
+	"\fssh_key_path\x18\a \x01(\tR\n" +
+	"sshKeyPath\x12(\n" +
+	"\x10ssh_key_password\x18\b \x01(\tR\x0esshKeyPassword\x12#\n" +
+	"\rhttp_username\x18\t \x01(\tR\fhttpUsername\x12#\n" +
+	"\rhttp_password\x18\n" +
+	" \x01(\tR\fhttpPassword\"5\n" +
+	"\x16SigstoreProviderConfig\x12\x1b\n" +
+	"\trekor_url\x18\x01 \x01(\tR\brekorUrl\"\x92\x01\n" +
 	"\rAppendRequest\x12\x16\n" +
 	"\x06ledger\x18\x01 \x01(\tR\x06ledger\x12\x1d\n" +
 	"\n" +
@@ -1343,14 +1615,15 @@ const file_audit_proto_rawDesc = "" +
 	"externalId\x12\"\n" +
 	"\fconfirmation\x18\x03 \x01(\tR\fconfirmation\x12\x1f\n" +
 	"\vanchored_at\x18\x04 \x01(\tR\n" +
-	"anchoredAt\"\x98\x01\n" +
+	"anchoredAt\"\xb0\x01\n" +
 	"\x1dPollAnchorConfirmationRequest\x12\x1b\n" +
 	"\tanchor_id\x18\x01 \x01(\tR\banchorId\x12\x1a\n" +
 	"\bprovider\x18\x02 \x01(\tR\bprovider\x12\x1f\n" +
 	"\vexternal_id\x18\x03 \x01(\tR\n" +
 	"externalId\x12\x1d\n" +
 	"\n" +
-	"proof_data\x18\x04 \x01(\fR\tproofData\"\x8e\x02\n" +
+	"proof_data\x18\x04 \x01(\fR\tproofData\x12\x16\n" +
+	"\x06ledger\x18\x05 \x01(\tR\x06ledger\"\x8e\x02\n" +
 	"\x1ePollAnchorConfirmationResponse\x123\n" +
 	"\x15previous_confirmation\x18\x01 \x01(\tR\x14previousConfirmation\x121\n" +
 	"\x14current_confirmation\x18\x02 \x01(\tR\x13currentConfirmation\x12\"\n" +
@@ -1404,30 +1677,33 @@ func file_audit_proto_rawDescGZIP() []byte {
 	return file_audit_proto_rawDescData
 }
 
-var file_audit_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
+var file_audit_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
 var file_audit_proto_goTypes = []any{
 	(*LedgerConfig)(nil),                   // 0: workflow.plugin.audit.v1.LedgerConfig
-	(*AppendRequest)(nil),                  // 1: workflow.plugin.audit.v1.AppendRequest
-	(*AppendResponse)(nil),                 // 2: workflow.plugin.audit.v1.AppendResponse
-	(*VerifyRequest)(nil),                  // 3: workflow.plugin.audit.v1.VerifyRequest
-	(*VerifyResponse)(nil),                 // 4: workflow.plugin.audit.v1.VerifyResponse
-	(*MerkleRootRequest)(nil),              // 5: workflow.plugin.audit.v1.MerkleRootRequest
-	(*MerkleRootResponse)(nil),             // 6: workflow.plugin.audit.v1.MerkleRootResponse
-	(*AnchorRequest)(nil),                  // 7: workflow.plugin.audit.v1.AnchorRequest
-	(*AnchorResponse)(nil),                 // 8: workflow.plugin.audit.v1.AnchorResponse
-	(*AnchorRecord)(nil),                   // 9: workflow.plugin.audit.v1.AnchorRecord
-	(*PollAnchorConfirmationRequest)(nil),  // 10: workflow.plugin.audit.v1.PollAnchorConfirmationRequest
-	(*PollAnchorConfirmationResponse)(nil), // 11: workflow.plugin.audit.v1.PollAnchorConfirmationResponse
-	(*ProofRequest)(nil),                   // 12: workflow.plugin.audit.v1.ProofRequest
-	(*ProofResponse)(nil),                  // 13: workflow.plugin.audit.v1.ProofResponse
-	(*Entry)(nil),                          // 14: workflow.plugin.audit.v1.Entry
-	(*PublicReceiptRequest)(nil),           // 15: workflow.plugin.audit.v1.PublicReceiptRequest
-	(*PublicReceiptResponse)(nil),          // 16: workflow.plugin.audit.v1.PublicReceiptResponse
+	(*OpenTimestampsProviderConfig)(nil),   // 1: workflow.plugin.audit.v1.OpenTimestampsProviderConfig
+	(*GitAnchorProviderConfig)(nil),        // 2: workflow.plugin.audit.v1.GitAnchorProviderConfig
+	(*SigstoreProviderConfig)(nil),         // 3: workflow.plugin.audit.v1.SigstoreProviderConfig
+	(*AppendRequest)(nil),                  // 4: workflow.plugin.audit.v1.AppendRequest
+	(*AppendResponse)(nil),                 // 5: workflow.plugin.audit.v1.AppendResponse
+	(*VerifyRequest)(nil),                  // 6: workflow.plugin.audit.v1.VerifyRequest
+	(*VerifyResponse)(nil),                 // 7: workflow.plugin.audit.v1.VerifyResponse
+	(*MerkleRootRequest)(nil),              // 8: workflow.plugin.audit.v1.MerkleRootRequest
+	(*MerkleRootResponse)(nil),             // 9: workflow.plugin.audit.v1.MerkleRootResponse
+	(*AnchorRequest)(nil),                  // 10: workflow.plugin.audit.v1.AnchorRequest
+	(*AnchorResponse)(nil),                 // 11: workflow.plugin.audit.v1.AnchorResponse
+	(*AnchorRecord)(nil),                   // 12: workflow.plugin.audit.v1.AnchorRecord
+	(*PollAnchorConfirmationRequest)(nil),  // 13: workflow.plugin.audit.v1.PollAnchorConfirmationRequest
+	(*PollAnchorConfirmationResponse)(nil), // 14: workflow.plugin.audit.v1.PollAnchorConfirmationResponse
+	(*ProofRequest)(nil),                   // 15: workflow.plugin.audit.v1.ProofRequest
+	(*ProofResponse)(nil),                  // 16: workflow.plugin.audit.v1.ProofResponse
+	(*Entry)(nil),                          // 17: workflow.plugin.audit.v1.Entry
+	(*PublicReceiptRequest)(nil),           // 18: workflow.plugin.audit.v1.PublicReceiptRequest
+	(*PublicReceiptResponse)(nil),          // 19: workflow.plugin.audit.v1.PublicReceiptResponse
 }
 var file_audit_proto_depIdxs = []int32{
-	9,  // 0: workflow.plugin.audit.v1.AnchorResponse.anchors:type_name -> workflow.plugin.audit.v1.AnchorRecord
-	14, // 1: workflow.plugin.audit.v1.ProofResponse.entry:type_name -> workflow.plugin.audit.v1.Entry
-	9,  // 2: workflow.plugin.audit.v1.ProofResponse.anchors:type_name -> workflow.plugin.audit.v1.AnchorRecord
+	12, // 0: workflow.plugin.audit.v1.AnchorResponse.anchors:type_name -> workflow.plugin.audit.v1.AnchorRecord
+	17, // 1: workflow.plugin.audit.v1.ProofResponse.entry:type_name -> workflow.plugin.audit.v1.Entry
+	12, // 2: workflow.plugin.audit.v1.ProofResponse.anchors:type_name -> workflow.plugin.audit.v1.AnchorRecord
 	3,  // [3:3] is the sub-list for method output_type
 	3,  // [3:3] is the sub-list for method input_type
 	3,  // [3:3] is the sub-list for extension type_name
@@ -1446,7 +1722,7 @@ func file_audit_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_audit_proto_rawDesc), len(file_audit_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   17,
+			NumMessages:   20,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

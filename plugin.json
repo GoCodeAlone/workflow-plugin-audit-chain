@@ -1,7 +1,7 @@
 {
     "name": "workflow-plugin-audit-chain",
     "version": "0.1.0",
-    "description": "Tamper-evident hash-chained audit logging with periodic Merkle root anchoring (OpenTimestamps/Bitcoin, git, Sigstore, Ethereum, AWS QLDB)",
+    "description": "Tamper-evident hash-chained audit logging with periodic Merkle root anchoring (OpenTimestamps/Bitcoin, git, Sigstore)",
     "author": "GoCodeAlone",
     "license": "MIT",
     "type": "external",
@@ -17,9 +17,7 @@
             "audit.ledger",
             "audit.anchor_provider.opentimestamps",
             "audit.anchor_provider.git",
-            "audit.anchor_provider.sigstore",
-            "audit.anchor_provider.ethereum",
-            "audit.anchor_provider.aws_qldb"
+            "audit.anchor_provider.sigstore"
         ],
         "stepTypes": [
             "step.audit.append",
