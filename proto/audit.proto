@@ -188,6 +188,9 @@ message PollAnchorConfirmationRequest {
   string external_id = 3;
   // proof_data is the opaque provider-specific proof bytes stored in audit_anchors.proof_data.
   bytes proof_data = 4;
+  // ledger identifies which ledger's DB handle to use when updating
+  // audit_anchors.confirmation after a status change.
+  string ledger = 5;
 }
 
 // PollAnchorConfirmationResponse is the output from step.audit.poll_anchor_confirmation.

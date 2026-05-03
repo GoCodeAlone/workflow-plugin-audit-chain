@@ -192,6 +192,79 @@ func TestCreateTrigger_KnownType_ReturnsNotImplemented(t *testing.T) {
 	}
 }
 
+// ── TypedStepProvider tests (primary gRPC path) ──────────────────────────────
+
+func typedStepProvider(t *testing.T) sdk.TypedStepProvider {
+	t.Helper()
+	p := internal.NewPlugin()
+	tp, ok := p.(sdk.TypedStepProvider)
+	if !ok {
+		t.Fatal("plugin does not implement sdk.TypedStepProvider")
+	}
+	return tp
+}
+
+// TestTypedStepTypes_Declared verifies all 7 step types are returned.
+func TestTypedStepTypes_Declared(t *testing.T) {
+	tp := typedStepProvider(t)
+	types := tp.TypedStepTypes()
+	want := []string{
+		"step.audit.append",
+		"step.audit.verify",
+		"step.audit.merkle_root",
+		"step.audit.anchor",
+		"step.audit.poll_anchor_confirmation",
+		"step.audit.proof",
+		"step.audit.public_receipt",
+	}
+	typeSet := make(map[string]bool, len(types))
+	for _, typ := range types {
+		typeSet[typ] = true
+	}
+	for _, w := range want {
+		if !typeSet[w] {
+			t.Errorf("TypedStepTypes() missing %q", w)
+		}
+	}
+}
+
+// TestCreateTypedStep_UnknownType_ReturnsError verifies that an unknown type
+// returns an "unknown step type" error.
+func TestCreateTypedStep_UnknownType_ReturnsError(t *testing.T) {
+	tp := typedStepProvider(t)
+	_, err := tp.CreateTypedStep("unknown.step.type", "x", nil)
+	if err == nil {
+		t.Fatal("expected error for unknown type, got nil")
+	}
+	if !strings.Contains(err.Error(), "unknown step type") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
+// TestCreateTypedStep_KnownType_ReturnsInstance verifies that known step types
+// produce a non-nil StepInstance (nil config is valid — no step-level config).
+func TestCreateTypedStep_KnownType_ReturnsInstance(t *testing.T) {
+	tp := typedStepProvider(t)
+	for _, typeName := range []string{
+		"step.audit.append",
+		"step.audit.verify",
+		"step.audit.merkle_root",
+		"step.audit.anchor",
+		"step.audit.poll_anchor_confirmation",
+		"step.audit.proof",
+		"step.audit.public_receipt",
+	} {
+		inst, err := tp.CreateTypedStep(typeName, "test-"+typeName, nil)
+		if err != nil {
+			t.Errorf("%s: unexpected error: %v", typeName, err)
+			continue
+		}
+		if inst == nil {
+			t.Errorf("%s: expected non-nil StepInstance, got nil", typeName)
+		}
+	}
+}
+
 // ── CreateTypedModule tests (primary gRPC path) ───────────────────────────────
 
 func typedModuleProvider(t *testing.T) sdk.TypedModuleProvider {

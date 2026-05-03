@@ -45,6 +45,18 @@ func UnregisterAnchorProvider(instanceName string) {
 	delete(anchorProviderRegistry, instanceName)
 }
 
+// AnchorProviderNames returns a snapshot of all currently registered anchor
+// provider names. Used by step.audit.anchor when providers = [] (all configured).
+func AnchorProviderNames() []string {
+	anchorProviderMu.RLock()
+	defer anchorProviderMu.RUnlock()
+	names := make([]string, 0, len(anchorProviderRegistry))
+	for name := range anchorProviderRegistry {
+		names = append(names, name)
+	}
+	return names
+}
+
 // ── anchorProviderModule ──────────────────────────────────────────────────────
 
 // anchorProviderModule is the shared sdk.ModuleInstance implementation for all

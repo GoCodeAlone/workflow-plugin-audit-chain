@@ -2,12 +2,15 @@
 package internal
 
 import (
+	"errors"
 	"fmt"
 
 	auditv1 "github.com/GoCodeAlone/workflow-plugin-audit-chain/gen"
 	"github.com/GoCodeAlone/workflow-plugin-audit-chain/modules"
+	"github.com/GoCodeAlone/workflow-plugin-audit-chain/steps"
 	sdk "github.com/GoCodeAlone/workflow/plugin/external/sdk"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // Version is set at build time via -ldflags
@@ -16,15 +19,16 @@ import (
 // unreleased dev builds; goreleaser overrides with the real release tag.
 var Version = "0.0.0"
 
-// AuditChainPlugin implements sdk.PluginProvider and sdk.TypedModuleProvider.
-// sdk.TypedStepProvider is added in Task 14 (step types).
-// Zero map[string]any in plugin code: all module boundaries use typed proto
-// messages (anypb.Any) — the engine calls CreateTypedModule and the legacy
-// map-based CreateModule stub returns an error so it is never silently invoked.
+// AuditChainPlugin implements sdk.PluginProvider, sdk.TypedModuleProvider, and
+// sdk.TypedStepProvider. Zero map[string]any in plugin code: all module and
+// step boundaries use typed proto messages (anypb.Any).
 type AuditChainPlugin struct{}
 
-// Compile-time assertion: AuditChainPlugin must satisfy TypedModuleProvider.
-var _ sdk.TypedModuleProvider = (*AuditChainPlugin)(nil)
+// Compile-time assertions.
+var (
+	_ sdk.TypedModuleProvider = (*AuditChainPlugin)(nil)
+	_ sdk.TypedStepProvider   = (*AuditChainPlugin)(nil)
+)
 
 // NewPlugin returns a new plugin instance. main.go calls sdk.Serve(NewPlugin()).
 func NewPlugin() sdk.PluginProvider {
@@ -129,7 +133,59 @@ func (p *AuditChainPlugin) CreateModule(typeName, _ string, _ map[string]any) (s
 	return nil, fmt.Errorf("audit-chain: unknown module type %q", typeName)
 }
 
+// ── Step provider (typed) ─────────────────────────────────────────────────────
+
+// stepFactories is the ordered list of TypedStepFactory instances, one per
+// step type. CreateTypedStep iterates them, letting each factory accept or
+// decline via ErrTypedContractNotHandled.
+var stepFactories = []sdk.TypedStepProvider{
+	sdk.NewTypedStepFactory(
+		"step.audit.append",
+		&emptypb.Empty{},
+		&auditv1.AppendRequest{},
+		steps.AppendHandler,
+	),
+	sdk.NewTypedStepFactory(
+		"step.audit.verify",
+		&emptypb.Empty{},
+		&auditv1.VerifyRequest{},
+		steps.VerifyHandler,
+	),
+	sdk.NewTypedStepFactory(
+		"step.audit.merkle_root",
+		&emptypb.Empty{},
+		&auditv1.MerkleRootRequest{},
+		steps.MerkleRootHandler,
+	),
+	sdk.NewTypedStepFactory(
+		"step.audit.anchor",
+		&emptypb.Empty{},
+		&auditv1.AnchorRequest{},
+		steps.AnchorHandler,
+	),
+	sdk.NewTypedStepFactory(
+		"step.audit.poll_anchor_confirmation",
+		&emptypb.Empty{},
+		&auditv1.PollAnchorConfirmationRequest{},
+		steps.PollAnchorConfirmationHandler,
+	),
+	sdk.NewTypedStepFactory(
+		"step.audit.proof",
+		&emptypb.Empty{},
+		&auditv1.ProofRequest{},
+		steps.ProofHandler,
+	),
+	sdk.NewTypedStepFactory(
+		"step.audit.public_receipt",
+		&emptypb.Empty{},
+		&auditv1.PublicReceiptRequest{},
+		steps.PublicReceiptHandler,
+	),
+}
+
 // StepTypes returns the step type names this plugin provides.
+// Satisfies the legacy sdk.StepProvider interface; TypedStepProvider is
+// preferred by the gRPC server.
 func (p *AuditChainPlugin) StepTypes() []string {
 	return []string{
 		"step.audit.append",
@@ -142,20 +198,36 @@ func (p *AuditChainPlugin) StepTypes() []string {
 	}
 }
 
-// CreateStep creates a step instance of the given type.
-func (p *AuditChainPlugin) CreateStep(typeName, name string, config map[string]any) (sdk.StepInstance, error) {
-	switch typeName {
-	case "step.audit.append",
-		"step.audit.verify",
-		"step.audit.merkle_root",
-		"step.audit.anchor",
-		"step.audit.poll_anchor_confirmation",
-		"step.audit.proof",
-		"step.audit.public_receipt":
-		return nil, fmt.Errorf("audit-chain: step type %q not yet implemented", typeName)
-	default:
-		return nil, fmt.Errorf("audit-chain: unknown step type %q", typeName)
+// TypedStepTypes returns the step type names served via the typed gRPC path.
+func (p *AuditChainPlugin) TypedStepTypes() []string {
+	return p.StepTypes()
+}
+
+// CreateTypedStep creates a typed step instance. Each factory handles exactly
+// one type; the first match wins. Unknown types return "unknown step type".
+func (p *AuditChainPlugin) CreateTypedStep(typeName, name string, config *anypb.Any) (sdk.StepInstance, error) {
+	for _, f := range stepFactories {
+		inst, err := f.CreateTypedStep(typeName, name, config)
+		if err == nil {
+			return inst, nil
+		}
+		if !errors.Is(err, sdk.ErrTypedContractNotHandled) {
+			return nil, err
+		}
 	}
+	return nil, fmt.Errorf("audit-chain: unknown step type %q", typeName)
+}
+
+// CreateStep satisfies the legacy sdk.StepProvider interface. The gRPC server
+// prefers TypedStepProvider, so this path is only reached by engines that do
+// not support typed steps.
+func (p *AuditChainPlugin) CreateStep(typeName, _ string, _ map[string]any) (sdk.StepInstance, error) {
+	for _, s := range p.StepTypes() {
+		if s == typeName {
+			return nil, fmt.Errorf("audit-chain: step type %q not yet implemented via legacy path; engine must support TypedStepProvider", typeName)
+		}
+	}
+	return nil, fmt.Errorf("audit-chain: unknown step type %q", typeName)
 }
 
 // TriggerTypes returns the trigger type names this plugin provides.

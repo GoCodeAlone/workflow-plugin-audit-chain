@@ -980,7 +980,10 @@ type PollAnchorConfirmationRequest struct {
 	// external_id is the provider's anchor reference stored in audit_anchors.external_id.
 	ExternalId string `protobuf:"bytes,3,opt,name=external_id,json=externalId,proto3" json:"external_id,omitempty"`
 	// proof_data is the opaque provider-specific proof bytes stored in audit_anchors.proof_data.
-	ProofData     []byte `protobuf:"bytes,4,opt,name=proof_data,json=proofData,proto3" json:"proof_data,omitempty"`
+	ProofData []byte `protobuf:"bytes,4,opt,name=proof_data,json=proofData,proto3" json:"proof_data,omitempty"`
+	// ledger identifies which ledger's DB handle to use when updating
+	// audit_anchors.confirmation after a status change.
+	Ledger        string `protobuf:"bytes,5,opt,name=ledger,proto3" json:"ledger,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1041,6 +1044,13 @@ func (x *PollAnchorConfirmationRequest) GetProofData() []byte {
 		return x.ProofData
 	}
 	return nil
+}
+
+func (x *PollAnchorConfirmationRequest) GetLedger() string {
+	if x != nil {
+		return x.Ledger
+	}
+	return ""
 }
 
 // PollAnchorConfirmationResponse is the output from step.audit.poll_anchor_confirmation.
@@ -1605,14 +1615,15 @@ const file_audit_proto_rawDesc = "" +
 	"externalId\x12\"\n" +
 	"\fconfirmation\x18\x03 \x01(\tR\fconfirmation\x12\x1f\n" +
 	"\vanchored_at\x18\x04 \x01(\tR\n" +
-	"anchoredAt\"\x98\x01\n" +
+	"anchoredAt\"\xb0\x01\n" +
 	"\x1dPollAnchorConfirmationRequest\x12\x1b\n" +
 	"\tanchor_id\x18\x01 \x01(\tR\banchorId\x12\x1a\n" +
 	"\bprovider\x18\x02 \x01(\tR\bprovider\x12\x1f\n" +
 	"\vexternal_id\x18\x03 \x01(\tR\n" +
 	"externalId\x12\x1d\n" +
 	"\n" +
-	"proof_data\x18\x04 \x01(\fR\tproofData\"\x8e\x02\n" +
+	"proof_data\x18\x04 \x01(\fR\tproofData\x12\x16\n" +
+	"\x06ledger\x18\x05 \x01(\tR\x06ledger\"\x8e\x02\n" +
 	"\x1ePollAnchorConfirmationResponse\x123\n" +
 	"\x15previous_confirmation\x18\x01 \x01(\tR\x14previousConfirmation\x121\n" +
 	"\x14current_confirmation\x18\x02 \x01(\tR\x13currentConfirmation\x12\"\n" +
