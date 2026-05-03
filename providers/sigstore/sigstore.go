@@ -23,7 +23,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/sha256"
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
@@ -117,9 +116,13 @@ func (p *Provider) Anchor(ctx context.Context, root providers.MerkleRoot) (provi
 		return providers.Anchor{}, fmt.Errorf("sigstore: generate key: %w", err)
 	}
 
-	// Sign the SHA-256 of the merkle root bytes.
-	digest := sha256.Sum256(hashBytes)
-	sig, err := ecdsa.SignASN1(rand.Reader, privKey, digest[:])
+	// Sign hashBytes directly. hashBytes IS the sha256 merkle root (32 bytes),
+	// so it is a valid ECDSA input digest. Data.Hash.Value declares this same
+	// value as the artifact hash, so the Rekor validator can verify with
+	// ecdsa.VerifyASN1(pubKey, hashBytes, sig). Double-hashing (sha256 of hashBytes)
+	// would produce a signature over a different digest than what's declared in
+	// the entry, causing Rekor to reject the entry.
+	sig, err := ecdsa.SignASN1(rand.Reader, privKey, hashBytes)
 	if err != nil {
 		return providers.Anchor{}, fmt.Errorf("sigstore: sign merkle root: %w", err)
 	}
@@ -173,7 +176,10 @@ func (p *Provider) Anchor(ctx context.Context, root providers.MerkleRoot) (provi
 		EntryUUID: entryUUID,
 		RekorURL:  p.cfg.RekorURL,
 	}
-	proofBytes, _ := json.Marshal(pd)
+	proofBytes, err := json.Marshal(pd)
+	if err != nil {
+		return providers.Anchor{}, fmt.Errorf("sigstore: marshal proof data: %w", err)
+	}
 
 	return providers.Anchor{
 		ProviderName: providerName,
@@ -217,12 +223,20 @@ func (p *Provider) Verify(ctx context.Context, anchor providers.Anchor) (provide
 	switch {
 	case errors.As(err, &notFound):
 		// 404: entry missing from transparency log → hard error.
+		// Rekor is append-only; a missing entry suggests tampering.
 		return providers.Verification{}, fmt.Errorf(
 			"sigstore: Rekor entry %s not found (transparency log may have been tampered with): %w",
 			pd.EntryUUID, err)
 
+	case errors.As(err, &defErr) && defErr.IsClientError():
+		// Non-404 4xx (e.g., 400 bad UUID): most likely malformed ProofData —
+		// a data integrity problem, not a transient failure. Hard error.
+		return providers.Verification{}, fmt.Errorf(
+			"sigstore: Rekor rejected request for entry %s (HTTP %d): %w",
+			pd.EntryUUID, defErr.Code(), err)
+
 	case errors.As(err, &defErr) && defErr.IsServerError():
-		// 5xx: server-side error → transient, swallow.
+		// 5xx: server-side error → transient, swallow per § 3.5c.
 		return providers.Verification{
 			Provider:     providerName,
 			Confirmation: anchor.Confirmation,
@@ -232,7 +246,7 @@ func (p *Provider) Verify(ctx context.Context, anchor providers.Anchor) (provide
 		}, nil
 
 	default:
-		// Network error or other unexpected failure → transient, swallow.
+		// Network error or unexpected status → transient, swallow per § 3.5c.
 		return providers.Verification{
 			Provider:     providerName,
 			Confirmation: anchor.Confirmation,

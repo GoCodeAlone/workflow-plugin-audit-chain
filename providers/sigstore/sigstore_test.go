@@ -155,6 +155,22 @@ func TestVerify_Rekor5xx_Swallowed(t *testing.T) {
 	assert.Equal(t, providers.ConfirmationFinalized, v.Confirmation)
 }
 
+func TestVerify_Rekor400_HardError(t *testing.T) {
+	// Non-404 4xx (e.g., 400 bad UUID) should be a hard error, not swallowed.
+	srv := newRekorServer(t, http.StatusCreated, http.StatusBadRequest)
+	defer srv.Close()
+
+	p, err := sigstore.NewProvider(sigstore.Config{RekorURL: srv.URL})
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	a, err := p.Anchor(ctx, providers.MerkleRoot{Hex: testRootHex})
+	require.NoError(t, err)
+
+	_, err = p.Verify(ctx, a)
+	require.Error(t, err, "non-404 4xx MUST be a hard error (likely malformed ProofData)")
+}
+
 func TestVerify_Rekor404_HardError(t *testing.T) {
 	// Create → 201 success; Verify → 404 (entry not found = hard error)
 	srv := newRekorServer(t, http.StatusCreated, http.StatusNotFound)
