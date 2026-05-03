@@ -11,8 +11,14 @@ import (
 
 func TestPayloadHash_DeterministicCanonical(t *testing.T) {
 	// Same logical JSON → same hash regardless of key order / whitespace.
-	h1 := chain.PayloadHash([]byte(`{"a":1,"b":2}`))
-	h2 := chain.PayloadHash([]byte(`{"b":2,"a":1}`))
+	h1, err := chain.PayloadHash([]byte(`{"a":1,"b":2}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	h2, err := chain.PayloadHash([]byte(`{"b":2,"a":1}`))
+	if err != nil {
+		t.Fatal(err)
+	}
 	if h1 != h2 {
 		t.Errorf("expected canonical hash equality; got %s vs %s", h1, h2)
 	}
@@ -22,7 +28,10 @@ func TestPayloadHash_DeterministicCanonical(t *testing.T) {
 }
 
 func TestPayloadHash_Is64HexChars(t *testing.T) {
-	h := chain.PayloadHash([]byte(`{"amount_cents":2000}`))
+	h, err := chain.PayloadHash([]byte(`{"amount_cents":2000}`))
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(h) != 64 {
 		t.Errorf("expected 64-char hex SHA256, got %d chars: %s", len(h), h)
 	}
@@ -35,10 +44,23 @@ func TestPayloadHash_Is64HexChars(t *testing.T) {
 }
 
 func TestPayloadHash_DifferentInputs_DifferentHash(t *testing.T) {
-	h1 := chain.PayloadHash([]byte(`{"amount":100}`))
-	h2 := chain.PayloadHash([]byte(`{"amount":200}`))
+	h1, err := chain.PayloadHash([]byte(`{"amount":100}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	h2, err := chain.PayloadHash([]byte(`{"amount":200}`))
+	if err != nil {
+		t.Fatal(err)
+	}
 	if h1 == h2 {
 		t.Error("different payloads must produce different hashes")
+	}
+}
+
+func TestPayloadHash_InvalidJSON_ReturnsError(t *testing.T) {
+	_, err := chain.PayloadHash([]byte(`{not json}`))
+	if err == nil {
+		t.Error("expected error for invalid JSON input")
 	}
 }
 

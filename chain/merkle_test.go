@@ -8,17 +8,31 @@ import (
 	"github.com/GoCodeAlone/workflow-plugin-audit-chain/chain"
 )
 
+// Domain-separation prefixes must match chain/merkle.go (RFC 6962 §2.1).
+const leafPfx     = byte(0x00)
+const internalPfx = byte(0x01)
+
 // helper: compute leaf hash the same way MerkleRoot does internally.
+// SHA-256(0x00 || []byte(s))
 func leafHash(s string) [32]byte {
-	return sha256.Sum256([]byte(s))
+	h := sha256.New()
+	h.Write([]byte{leafPfx})
+	h.Write([]byte(s))
+	var out [32]byte
+	copy(out[:], h.Sum(nil))
+	return out
 }
 
 // helper: combine two raw-byte hashes the same way MerkleRoot does.
+// SHA-256(0x01 || left || right)
 func combineRaw(left, right [32]byte) [32]byte {
-	var buf [64]byte
-	copy(buf[:32], left[:])
-	copy(buf[32:], right[:])
-	return sha256.Sum256(buf[:])
+	h := sha256.New()
+	h.Write([]byte{internalPfx})
+	h.Write(left[:])
+	h.Write(right[:])
+	var out [32]byte
+	copy(out[:], h.Sum(nil))
+	return out
 }
 
 // ── MerkleRoot ────────────────────────────────────────────────────────────────
@@ -181,10 +195,25 @@ func TestMerkleProof_TamperedProof_Fails(t *testing.T) {
 	if len(proof) == 0 {
 		t.Skip("no proof elements to tamper")
 	}
-	// Flip last hex char of first proof element (after direction prefix).
-	p := []string{proof[0][:64] + "x"}
-	if chain.VerifyInclusion(leaves[2], p, root) {
-		t.Error("tampered proof element should not verify")
+	// Flip last hex char of the first proof element to a different valid hex digit.
+	// The proof retains its full length and structure — only one nibble is wrong.
+	flipHex := map[byte]byte{
+		'0': '1', '1': '0', '2': '3', '3': '2', '4': '5', '5': '4',
+		'6': '7', '7': '6', '8': '9', '9': '8',
+		'a': 'b', 'b': 'a', 'c': 'd', 'd': 'c', 'e': 'f', 'f': 'e',
+	}
+	tampered := make([]string, len(proof))
+	copy(tampered, proof)
+	last := tampered[0]
+	ch := last[len(last)-1]
+	flipped, ok := flipHex[ch]
+	if !ok {
+		flipped = '0'
+	}
+	tampered[0] = last[:len(last)-1] + string(flipped)
+
+	if chain.VerifyInclusion(leaves[2], tampered, root) {
+		t.Error("tampered proof element (valid hex, wrong hash) should not verify")
 	}
 }
 

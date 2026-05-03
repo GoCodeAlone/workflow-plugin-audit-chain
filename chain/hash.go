@@ -7,17 +7,18 @@ import (
 	"fmt"
 )
 
-// PayloadHash returns SHA-256(Canonicalize(data)) as a lowercase 64-char hex string.
+// PayloadHash returns (SHA-256(Canonicalize(data)), nil) as a lowercase 64-char hex string.
 // The input is canonicalized per RFC 8785 before hashing so that key order and
 // whitespace in the caller's JSON do not affect the hash value.
-// Panics if data is not valid JSON (payloads are always validated before storage).
-func PayloadHash(data []byte) string {
+// Returns an error if data is not valid JSON — callers (e.g. the append step) must
+// validate the payload before appending rather than relying on a panic.
+func PayloadHash(data []byte) (string, error) {
 	canonical, err := Canonicalize(data)
 	if err != nil {
-		panic(fmt.Sprintf("chain.PayloadHash: canonicalize: %v", err))
+		return "", fmt.Errorf("chain.PayloadHash: %w", err)
 	}
 	h := sha256.Sum256(canonical)
-	return hex.EncodeToString(h[:])
+	return hex.EncodeToString(h[:]), nil
 }
 
 // EntryHash computes the chain-integrity hash for an audit log entry.
