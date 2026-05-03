@@ -34,9 +34,7 @@
             "trigger.audit.entry_appended"
         ]
     },
-    "contracts": [
-        "plugin.contracts.json"
-    ],
+    "contracts": [],
     "downloads": [
         {
             "os": "linux",
