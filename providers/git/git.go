@@ -25,6 +25,8 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/transport"
+	gogithttp "github.com/go-git/go-git/v5/plumbing/transport/http"
+	gogitssh "github.com/go-git/go-git/v5/plumbing/transport/ssh"
 
 	"github.com/GoCodeAlone/workflow-plugin-audit-chain/providers"
 )
@@ -33,7 +35,7 @@ const providerName = "git"
 
 // Config holds configuration for the git anchor provider.
 type Config struct {
-	// Remote is the git remote URL (file path, https, ssh, etc.).
+	// Remote is the git remote URL (file path, https, git+ssh, etc.).
 	Remote string `json:"remote"`
 
 	// Branch is the branch to push anchors to. Defaults to "main".
@@ -48,6 +50,25 @@ type Config struct {
 
 	// AuthorEmail is the git commit author email. Defaults to "audit-chain-bot@localhost".
 	AuthorEmail string `json:"author_email,omitempty"`
+
+	// Auth — all optional; leave zero for anonymous / file:// remotes.
+
+	// UseSSHAgent uses the system SSH agent for authentication (production default
+	// for git+ssh remotes like git@github.com:org/repo.git).
+	UseSSHAgent bool `json:"use_ssh_agent,omitempty"`
+
+	// SSHKeyPath is the path to a PEM-encoded private key file.
+	// Used when UseSSHAgent is false and the remote is SSH.
+	SSHKeyPath string `json:"ssh_key_path,omitempty"`
+
+	// SSHKeyPassword is the passphrase for an encrypted PEM key at SSHKeyPath.
+	// Leave empty for unencrypted keys.
+	SSHKeyPassword string `json:"ssh_key_password,omitempty"`
+
+	// HTTPUsername and HTTPPassword provide HTTP Basic Auth credentials
+	// (or personal-access token in the Password field) for HTTPS remotes.
+	HTTPUsername string `json:"http_username,omitempty"`
+	HTTPPassword string `json:"http_password,omitempty"`
 }
 
 // CommitTemplateData is the data available to CommitTemplate.
@@ -75,13 +96,15 @@ type proofData struct {
 type Provider struct {
 	cfg            Config
 	commitTemplate *template.Template
+	auth           transport.AuthMethod // nil for anonymous / file:// remotes
 }
 
 // Compile-time assertion.
 var _ providers.AnchorProvider = (*Provider)(nil)
 
 // NewProvider creates a new git anchor provider.
-// Returns an error if Remote is empty or CommitTemplate is invalid.
+// Returns an error if Remote is empty, CommitTemplate is invalid, or auth
+// credentials cannot be loaded (e.g., SSHKeyPath does not exist).
 func NewProvider(cfg Config) (*Provider, error) {
 	if cfg.Remote == "" {
 		return nil, fmt.Errorf("git provider: remote is required")
@@ -104,7 +127,41 @@ func NewProvider(cfg Config) (*Provider, error) {
 		return nil, fmt.Errorf("git provider: invalid commit template: %w", err)
 	}
 
-	return &Provider{cfg: cfg, commitTemplate: tmpl}, nil
+	auth, err := buildAuth(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("git provider: build auth: %w", err)
+	}
+
+	return &Provider{cfg: cfg, commitTemplate: tmpl, auth: auth}, nil
+}
+
+// buildAuth constructs the go-git transport.AuthMethod from the config fields.
+// Returns nil (anonymous) when no auth fields are set.
+func buildAuth(cfg Config) (transport.AuthMethod, error) {
+	switch {
+	case cfg.UseSSHAgent:
+		a, err := gogitssh.NewSSHAgentAuth("git")
+		if err != nil {
+			return nil, fmt.Errorf("SSH agent: %w", err)
+		}
+		return a, nil
+
+	case cfg.SSHKeyPath != "":
+		a, err := gogitssh.NewPublicKeysFromFile("git", cfg.SSHKeyPath, cfg.SSHKeyPassword)
+		if err != nil {
+			return nil, fmt.Errorf("SSH key %s: %w", cfg.SSHKeyPath, err)
+		}
+		return a, nil
+
+	case cfg.HTTPUsername != "" || cfg.HTTPPassword != "":
+		return &gogithttp.BasicAuth{
+			Username: cfg.HTTPUsername,
+			Password: cfg.HTTPPassword,
+		}, nil
+
+	default:
+		return nil, nil // anonymous / file:// remote
+	}
 }
 
 // Name returns the provider's stable identifier.
@@ -137,7 +194,7 @@ func (p *Provider) Anchor(ctx context.Context, root providers.MerkleRoot) (provi
 	defer os.RemoveAll(tmpDir)
 
 	// Clone or init (handles empty/new remotes).
-	repo, err := p.cloneOrInit(tmpDir)
+	repo, err := p.cloneOrInit(ctx, tmpDir)
 	if err != nil {
 		return providers.Anchor{}, fmt.Errorf("git provider: clone/init from %s: %w", p.cfg.Remote, err)
 	}
@@ -175,6 +232,7 @@ func (p *Provider) Anchor(ctx context.Context, root providers.MerkleRoot) (provi
 	pushErr := repo.PushContext(ctx, &gogit.PushOptions{
 		RemoteName: "origin",
 		RefSpecs:   []config.RefSpec{refSpec},
+		Auth:       p.auth,
 	})
 	if pushErr != nil && pushErr != gogit.NoErrAlreadyUpToDate {
 		return providers.Anchor{}, fmt.Errorf("git provider: push to %s: %w", p.cfg.Remote, pushErr)
@@ -186,7 +244,10 @@ func (p *Provider) Anchor(ctx context.Context, root providers.MerkleRoot) (provi
 		Branch:    p.cfg.Branch,
 		FilePath:  fileRelPath,
 	}
-	proofBytes, _ := json.Marshal(pd)
+	proofBytes, err := json.Marshal(pd)
+	if err != nil {
+		return providers.Anchor{}, fmt.Errorf("git provider: marshal proof data: %w", err)
+	}
 
 	return providers.Anchor{
 		ProviderName: providerName,
@@ -197,20 +258,25 @@ func (p *Provider) Anchor(ctx context.Context, root providers.MerkleRoot) (provi
 	}, nil
 }
 
-// cloneOrInit clones the remote into dir. If the remote is empty (no commits),
-// it initializes a fresh local repo with the remote configured as "origin".
-func (p *Provider) cloneOrInit(dir string) (*gogit.Repository, error) {
-	repo, err := gogit.PlainClone(dir, false, &gogit.CloneOptions{
+// cloneOrInit clones the remote into dir, respecting ctx for cancellation.
+// If the remote is empty (no commits yet), it initializes a fresh local repo
+// with origin set, ready for the first push.
+func (p *Provider) cloneOrInit(ctx context.Context, dir string) (*gogit.Repository, error) {
+	repo, err := gogit.PlainCloneContext(ctx, dir, false, &gogit.CloneOptions{
 		URL:           p.cfg.Remote,
 		ReferenceName: plumbing.NewBranchReferenceName(p.cfg.Branch),
 		SingleBranch:  true,
 		Depth:         1,
+		Auth:          p.auth,
 	})
 	if err == nil {
 		return repo, nil
 	}
 
-	// Empty remote (first anchor) — initialize fresh local repo.
+	// Empty remote (first anchor ever) — initialize fresh local repo.
+	// transport.ErrEmptyRemoteRepository is the canonical sentinel; the string
+	// checks are defensive fallbacks for server implementations that return
+	// slightly different messages.
 	if err == transport.ErrEmptyRemoteRepository ||
 		strings.Contains(err.Error(), "remote repository is empty") ||
 		strings.Contains(err.Error(), "couldn't find remote ref") {
@@ -285,7 +351,7 @@ func (p *Provider) Verify(ctx context.Context, anchor providers.Anchor) (provide
 		Name: "origin",
 		URLs: []string{pd.Remote},
 	})
-	_, err := remote.ListContext(ctx, &gogit.ListOptions{})
+	_, err := remote.ListContext(ctx, &gogit.ListOptions{Auth: p.auth})
 	if err != nil {
 		// Remote unreachable → transient error; swallow and preserve state.
 		return providers.Verification{
