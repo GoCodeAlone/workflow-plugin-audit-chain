@@ -467,8 +467,13 @@ type MerkleRootResponse struct {
 	Root string `protobuf:"bytes,1,opt,name=root,proto3" json:"root,omitempty"`
 	// entries_included is the count of entries included in the tree.
 	EntriesIncluded int64 `protobuf:"varint,2,opt,name=entries_included,json=entriesIncluded,proto3" json:"entries_included,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// start_sequence is the first sequence included in the tree (echoed from request).
+	StartSequence int64 `protobuf:"varint,3,opt,name=start_sequence,json=startSequence,proto3" json:"start_sequence,omitempty"`
+	// end_sequence is the last sequence included in the tree (the resolved value; useful
+	// when the request used 0 = latest).
+	EndSequence   int64 `protobuf:"varint,4,opt,name=end_sequence,json=endSequence,proto3" json:"end_sequence,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *MerkleRootResponse) Reset() {
@@ -511,6 +516,20 @@ func (x *MerkleRootResponse) GetRoot() string {
 func (x *MerkleRootResponse) GetEntriesIncluded() int64 {
 	if x != nil {
 		return x.EntriesIncluded
+	}
+	return 0
+}
+
+func (x *MerkleRootResponse) GetStartSequence() int64 {
+	if x != nil {
+		return x.StartSequence
+	}
+	return 0
+}
+
+func (x *MerkleRootResponse) GetEndSequence() int64 {
+	if x != nil {
+		return x.EndSequence
 	}
 	return 0
 }
@@ -1020,11 +1039,27 @@ type Entry struct {
 	// payload is the canonical JSON (RFC 8785) bytes of the event data.
 	Payload []byte `protobuf:"bytes,4,opt,name=payload,proto3" json:"payload,omitempty"`
 	// entry_hash is the SHA256 hash of this entry (hex-encoded).
+	// Preimage: SHA256 of the RFC-8785 canonical JSON of the object
+	//
+	//	{ "sequence": <int64>, "ledger": <string>, "event_type": <string>,
+	//	  "payload_hash": <hex-SHA256(canonical(payload))>,
+	//	  "prev_entry_hash": <string>, "created_at": <RFC3339> }
+	//
+	// Keys sorted lexicographically, no whitespace. actor and metadata are NOT
+	// included in the entry_hash preimage (they are stored but are not load-bearing
+	// for chain integrity).
 	EntryHash string `protobuf:"bytes,5,opt,name=entry_hash,json=entryHash,proto3" json:"entry_hash,omitempty"`
-	// prev_entry_hash is the entry_hash of the preceding entry; empty for genesis.
+	// prev_entry_hash is the entry_hash of the preceding entry; empty string for the
+	// genesis entry (sequence 1).
 	PrevEntryHash string `protobuf:"bytes,6,opt,name=prev_entry_hash,json=prevEntryHash,proto3" json:"prev_entry_hash,omitempty"`
 	// created_at is when this entry was appended (RFC3339).
-	CreatedAt     string `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	CreatedAt string `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// actor is the application-defined identifier of who/what triggered the event.
+	// Stored for audit purposes; not included in the entry_hash preimage.
+	Actor string `protobuf:"bytes,8,opt,name=actor,proto3" json:"actor,omitempty"`
+	// metadata is the canonical JSON (RFC 8785) bytes for non-payload metadata;
+	// empty if not set. Not included in the entry_hash preimage.
+	Metadata      []byte `protobuf:"bytes,9,opt,name=metadata,proto3" json:"metadata,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1106,6 +1141,20 @@ func (x *Entry) GetCreatedAt() string {
 		return x.CreatedAt
 	}
 	return ""
+}
+
+func (x *Entry) GetActor() string {
+	if x != nil {
+		return x.Actor
+	}
+	return ""
+}
+
+func (x *Entry) GetMetadata() []byte {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
 }
 
 // PublicReceiptRequest is the input for step.audit.public_receipt.
@@ -1275,10 +1324,12 @@ const file_audit_proto_rawDesc = "" +
 	"\x11MerkleRootRequest\x12\x16\n" +
 	"\x06ledger\x18\x01 \x01(\tR\x06ledger\x12%\n" +
 	"\x0estart_sequence\x18\x02 \x01(\x03R\rstartSequence\x12!\n" +
-	"\fend_sequence\x18\x03 \x01(\x03R\vendSequence\"S\n" +
+	"\fend_sequence\x18\x03 \x01(\x03R\vendSequence\"\x9d\x01\n" +
 	"\x12MerkleRootResponse\x12\x12\n" +
 	"\x04root\x18\x01 \x01(\tR\x04root\x12)\n" +
-	"\x10entries_included\x18\x02 \x01(\x03R\x0fentriesIncluded\"\x8f\x01\n" +
+	"\x10entries_included\x18\x02 \x01(\x03R\x0fentriesIncluded\x12%\n" +
+	"\x0estart_sequence\x18\x03 \x01(\x03R\rstartSequence\x12!\n" +
+	"\fend_sequence\x18\x04 \x01(\x03R\vendSequence\"\x8f\x01\n" +
 	"\rAnchorRequest\x12\x16\n" +
 	"\x06ledger\x18\x01 \x01(\tR\x06ledger\x12%\n" +
 	"\x0estart_sequence\x18\x02 \x01(\x03R\rstartSequence\x12!\n" +
@@ -1317,7 +1368,7 @@ const file_audit_proto_rawDesc = "" +
 	"merklePath\x12\x1f\n" +
 	"\vmerkle_root\x18\x03 \x01(\tR\n" +
 	"merkleRoot\x12@\n" +
-	"\aanchors\x18\x04 \x03(\v2&.workflow.plugin.audit.v1.AnchorRecordR\aanchors\"\xda\x01\n" +
+	"\aanchors\x18\x04 \x03(\v2&.workflow.plugin.audit.v1.AnchorRecordR\aanchors\"\x8c\x02\n" +
 	"\x05Entry\x12\x1a\n" +
 	"\bsequence\x18\x01 \x01(\x03R\bsequence\x12\x16\n" +
 	"\x06ledger\x18\x02 \x01(\tR\x06ledger\x12\x1d\n" +
@@ -1328,7 +1379,9 @@ const file_audit_proto_rawDesc = "" +
 	"entry_hash\x18\x05 \x01(\tR\tentryHash\x12&\n" +
 	"\x0fprev_entry_hash\x18\x06 \x01(\tR\rprevEntryHash\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\a \x01(\tR\tcreatedAt\"o\n" +
+	"created_at\x18\a \x01(\tR\tcreatedAt\x12\x14\n" +
+	"\x05actor\x18\b \x01(\tR\x05actor\x12\x1a\n" +
+	"\bmetadata\x18\t \x01(\fR\bmetadata\"o\n" +
 	"\x14PublicReceiptRequest\x12\x16\n" +
 	"\x06ledger\x18\x01 \x01(\tR\x06ledger\x12\x1a\n" +
 	"\bsequence\x18\x02 \x01(\x03R\bsequence\x12#\n" +

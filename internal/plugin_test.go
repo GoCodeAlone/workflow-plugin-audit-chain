@@ -44,8 +44,8 @@ func TestModuleTypes_Declared(t *testing.T) {
 		"audit.anchor_provider.aws_qldb",
 	}
 	typeSet := make(map[string]bool, len(types))
-	for _, t := range types {
-		typeSet[t] = true
+	for _, typ := range types {
+		typeSet[typ] = true
 	}
 	for _, w := range want {
 		if !typeSet[w] {
@@ -71,8 +71,8 @@ func TestStepTypes_Declared(t *testing.T) {
 		"step.audit.public_receipt",
 	}
 	typeSet := make(map[string]bool, len(types))
-	for _, t := range types {
-		typeSet[t] = true
+	for _, typ := range types {
+		typeSet[typ] = true
 	}
 	for _, w := range want {
 		if !typeSet[w] {
@@ -169,6 +169,21 @@ func TestCreateStep_KnownType_ReturnsNotImplemented(t *testing.T) {
 	_, err := sp.CreateStep("step.audit.append", "test", nil)
 	if err == nil {
 		t.Error("CreateStep for step.audit.append should return not-implemented error")
+	}
+	if !strings.Contains(err.Error(), "not yet implemented") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
+func TestCreateTrigger_KnownType_ReturnsNotImplemented(t *testing.T) {
+	p := internal.NewPlugin()
+	tp, ok := p.(sdk.TriggerProvider)
+	if !ok {
+		t.Fatal("plugin does not implement sdk.TriggerProvider")
+	}
+	_, err := tp.CreateTrigger("trigger.audit.entry_appended", nil, nil)
+	if err == nil {
+		t.Error("CreateTrigger for trigger.audit.entry_appended should return not-implemented error")
 	}
 	if !strings.Contains(err.Error(), "not yet implemented") {
 		t.Errorf("unexpected error message: %v", err)

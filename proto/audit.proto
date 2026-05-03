@@ -88,6 +88,11 @@ message MerkleRootResponse {
   string root = 1;
   // entries_included is the count of entries included in the tree.
   int64 entries_included = 2;
+  // start_sequence is the first sequence included in the tree (echoed from request).
+  int64 start_sequence = 3;
+  // end_sequence is the last sequence included in the tree (the resolved value; useful
+  // when the request used 0 = latest).
+  int64 end_sequence = 4;
 }
 
 // ─── step.audit.anchor ───────────────────────────────────────────────────────
@@ -194,11 +199,25 @@ message Entry {
   // payload is the canonical JSON (RFC 8785) bytes of the event data.
   bytes payload = 4;
   // entry_hash is the SHA256 hash of this entry (hex-encoded).
+  // Preimage: SHA256 of the RFC-8785 canonical JSON of the object
+  //   { "sequence": <int64>, "ledger": <string>, "event_type": <string>,
+  //     "payload_hash": <hex-SHA256(canonical(payload))>,
+  //     "prev_entry_hash": <string>, "created_at": <RFC3339> }
+  // Keys sorted lexicographically, no whitespace. actor and metadata are NOT
+  // included in the entry_hash preimage (they are stored but are not load-bearing
+  // for chain integrity).
   string entry_hash = 5;
-  // prev_entry_hash is the entry_hash of the preceding entry; empty for genesis.
+  // prev_entry_hash is the entry_hash of the preceding entry; empty string for the
+  // genesis entry (sequence 1).
   string prev_entry_hash = 6;
   // created_at is when this entry was appended (RFC3339).
   string created_at = 7;
+  // actor is the application-defined identifier of who/what triggered the event.
+  // Stored for audit purposes; not included in the entry_hash preimage.
+  string actor = 8;
+  // metadata is the canonical JSON (RFC 8785) bytes for non-payload metadata;
+  // empty if not set. Not included in the entry_hash preimage.
+  bytes metadata = 9;
 }
 
 // ─── step.audit.public_receipt ───────────────────────────────────────────────
