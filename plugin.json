@@ -1,6 +1,6 @@
 {
     "name": "workflow-plugin-audit-chain",
-    "version": "0.1.0",
+    "version": "0.2.1",
     "description": "Tamper-evident hash-chained audit logging with periodic Merkle root anchoring (OpenTimestamps/Bitcoin, git, Sigstore)",
     "author": "GoCodeAlone",
     "license": "MIT",
@@ -37,27 +37,27 @@
         {
             "os": "linux",
             "arch": "amd64",
-            "url": "https://github.com/GoCodeAlone/workflow-plugin-audit-chain/releases/download/v0.1.0/workflow-plugin-audit-chain-linux-amd64.tar.gz"
+            "url": "https://github.com/GoCodeAlone/workflow-plugin-audit-chain/releases/download/v0.2.1/workflow-plugin-audit-chain-linux-amd64.tar.gz"
         },
         {
             "os": "linux",
             "arch": "arm64",
-            "url": "https://github.com/GoCodeAlone/workflow-plugin-audit-chain/releases/download/v0.1.0/workflow-plugin-audit-chain-linux-arm64.tar.gz"
+            "url": "https://github.com/GoCodeAlone/workflow-plugin-audit-chain/releases/download/v0.2.1/workflow-plugin-audit-chain-linux-arm64.tar.gz"
         },
         {
             "os": "darwin",
             "arch": "amd64",
-            "url": "https://github.com/GoCodeAlone/workflow-plugin-audit-chain/releases/download/v0.1.0/workflow-plugin-audit-chain-darwin-amd64.tar.gz"
+            "url": "https://github.com/GoCodeAlone/workflow-plugin-audit-chain/releases/download/v0.2.1/workflow-plugin-audit-chain-darwin-amd64.tar.gz"
         },
         {
             "os": "darwin",
             "arch": "arm64",
-            "url": "https://github.com/GoCodeAlone/workflow-plugin-audit-chain/releases/download/v0.1.0/workflow-plugin-audit-chain-darwin-arm64.tar.gz"
+            "url": "https://github.com/GoCodeAlone/workflow-plugin-audit-chain/releases/download/v0.2.1/workflow-plugin-audit-chain-darwin-arm64.tar.gz"
         },
         {
             "os": "windows",
             "arch": "amd64",
-            "url": "https://github.com/GoCodeAlone/workflow-plugin-audit-chain/releases/download/v0.1.0/workflow-plugin-audit-chain-windows-amd64.tar.gz"
+            "url": "https://github.com/GoCodeAlone/workflow-plugin-audit-chain/releases/download/v0.2.1/workflow-plugin-audit-chain-windows-amd64.tar.gz"
         }
     ]
 }
