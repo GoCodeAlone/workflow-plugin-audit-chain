@@ -1,15 +1,19 @@
 package internal_test
 
-// contract_smoke_test.go verifies the plugin factory and the
-// trigger.audit.entry_appended factory specifically, because this trigger type
-// was the failure surface in BMW PR #277 (trigger not registered under the
-// strict-contracts SDK path).
+// contract_smoke_test.go verifies the plugin factory returns a non-nil,
+// non-typed-nil PluginProvider — the SDK v0.51.2 contract required by the
+// strict-contracts CI gate.
+//
+// Trigger-type registration and error-path assertions for
+// trigger.audit.entry_appended live in plugin_test.go
+// (TestTriggerTypes_Declared + TestCreateTrigger_KnownType_ReturnsNotImplemented),
+// which is the canonical coverage for those cases.
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/GoCodeAlone/workflow-plugin-audit-chain/internal"
-	sdk "github.com/GoCodeAlone/workflow/plugin/external/sdk"
 )
 
 // TestAuditChainPlugin_FactoryNonNil verifies that NewPlugin() returns a
@@ -19,45 +23,14 @@ func TestAuditChainPlugin_FactoryNonNil(t *testing.T) {
 	if p == nil {
 		t.Fatal("NewPlugin() returned nil; factory must return a non-nil PluginProvider")
 	}
-}
-
-// TestAuditChainPlugin_TriggerEntryAppended_Registered verifies that
-// trigger.audit.entry_appended is registered in TriggerTypes(). This was the
-// BMW PR #277 failure surface: the trigger was declared in plugin.json but not
-// returned by TriggerTypes(), causing the engine to reject the plugin at load.
-func TestAuditChainPlugin_TriggerEntryAppended_Registered(t *testing.T) {
-	p := internal.NewPlugin()
-	if p == nil {
-		t.Fatal("NewPlugin() returned nil")
+	// Guard against typed-nil (interface non-nil but underlying pointer is nil),
+	// which would panic at sdk.Serve call time.
+	v := reflect.ValueOf(p)
+	if v.Kind() == reflect.Ptr && v.IsNil() {
+		t.Fatal("NewPlugin() returned a typed-nil interface value")
 	}
-
-	tp, ok := p.(sdk.TriggerProvider)
-	if !ok {
-		t.Fatal("plugin does not implement sdk.TriggerProvider")
-	}
-
-	const target = "trigger.audit.entry_appended"
-	for _, tt := range tp.TriggerTypes() {
-		if tt == target {
-			return // found
-		}
-	}
-	t.Errorf("TriggerTypes() does not include %q; got: %v", target, tp.TriggerTypes())
-}
-
-// TestAuditChainPlugin_TriggerEntryAppended_CreateReturnsError verifies that
-// calling CreateTrigger for trigger.audit.entry_appended returns a non-nil
-// error (not-yet-implemented), rather than returning (nil, nil) which would
-// silently accept an unregistered trigger and stall the engine at runtime.
-func TestAuditChainPlugin_TriggerEntryAppended_CreateReturnsError(t *testing.T) {
-	p := internal.NewPlugin()
-	tp, ok := p.(sdk.TriggerProvider)
-	if !ok {
-		t.Fatal("plugin does not implement sdk.TriggerProvider")
-	}
-
-	_, err := tp.CreateTrigger("trigger.audit.entry_appended", nil, nil)
-	if err == nil {
-		t.Fatal("CreateTrigger(trigger.audit.entry_appended) returned nil error; expected 'not yet implemented'")
+	// Type-assert to concrete type to confirm factory wiring.
+	if _, ok := p.(*internal.AuditChainPlugin); !ok {
+		t.Fatalf("NewPlugin() returned unexpected type %T", p)
 	}
 }

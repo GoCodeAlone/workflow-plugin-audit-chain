@@ -59,6 +59,10 @@ jobs:
           set -euo pipefail
           PLUGIN_GRPC=$(go list -m -f '{{.Version}}' google.golang.org/grpc)
           WORKFLOW_GRPC=$(grep '^grpc=' workflow-grpc-versions.txt | cut -d= -f2)
+          if [ -z "$WORKFLOW_GRPC" ]; then
+            echo "::error::workflow-grpc-versions.txt missing 'grpc=' line; cannot verify grpc-go version"
+            exit 1
+          fi
           echo "Plugin grpc-go: ${PLUGIN_GRPC}"
           echo "Workflow grpc-go: ${WORKFLOW_GRPC}"
           if [ "${PLUGIN_GRPC}" != "${WORKFLOW_GRPC}" ]; then
