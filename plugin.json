@@ -7,7 +7,7 @@
     "type": "external",
     "tier": "community",
     "private": false,
-    "minEngineVersion": "0.20.0",
+    "minEngineVersion": "0.51.2",
     "keywords": ["audit", "hash-chain", "merkle", "opentimestamps", "tamper-evident"],
     "homepage": "https://github.com/GoCodeAlone/workflow-plugin-audit-chain",
     "repository": "https://github.com/GoCodeAlone/workflow-plugin-audit-chain",
