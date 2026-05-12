@@ -28,6 +28,7 @@ type AuditChainPlugin struct{}
 var (
 	_ sdk.TypedModuleProvider = (*AuditChainPlugin)(nil)
 	_ sdk.TypedStepProvider   = (*AuditChainPlugin)(nil)
+	_ sdk.ContractProvider    = (*AuditChainPlugin)(nil)
 )
 
 // NewPlugin returns a new plugin instance. main.go calls sdk.Serve(NewPlugin()).
