@@ -166,7 +166,7 @@ var stepFactories = []sdk.TypedStepProvider{
 	),
 	sdk.NewTypedStepFactory(
 		"step.audit.poll_anchor_confirmation",
-		&emptypb.Empty{},
+		&auditv1.PollAnchorConfirmationConfig{},
 		&auditv1.PollAnchorConfirmationRequest{},
 		steps.PollAnchorConfirmationHandler,
 	),
@@ -178,7 +178,7 @@ var stepFactories = []sdk.TypedStepProvider{
 	),
 	sdk.NewTypedStepFactory(
 		"step.audit.public_receipt",
-		&emptypb.Empty{},
+		&auditv1.PublicReceiptConfig{},
 		&auditv1.PublicReceiptRequest{},
 		steps.PublicReceiptHandler,
 	),

@@ -132,6 +132,35 @@ func TestContractRegistry_CoversEveryStepType(t *testing.T) {
 	}
 }
 
+// TestContractRegistry_TypedConfigSteps asserts that the two step types BMW
+// drives via the YAML `config:` block (poll_anchor_confirmation and
+// public_receipt) advertise a fully-qualified non-Empty ConfigMessage so the
+// engine routes the typed config through STRICT_PROTO dispatch without
+// rejecting BMW keys. v0.2.2 strict-proto-config-fields fix.
+func TestContractRegistry_TypedConfigSteps(t *testing.T) {
+	reg := contractRegistry(t)
+	wantConfig := map[string]string{
+		"step.audit.poll_anchor_confirmation": "workflow.plugin.audit.v1.PollAnchorConfirmationConfig",
+		"step.audit.public_receipt":           "workflow.plugin.audit.v1.PublicReceiptConfig",
+	}
+	got := map[string]*pb.ContractDescriptor{}
+	for _, c := range reg.Contracts {
+		if c.Kind == pb.ContractKind_CONTRACT_KIND_STEP {
+			got[c.StepType] = c
+		}
+	}
+	for stepType, wantMsg := range wantConfig {
+		c, ok := got[stepType]
+		if !ok {
+			t.Errorf("step %q: missing contract descriptor", stepType)
+			continue
+		}
+		if c.ConfigMessage != wantMsg {
+			t.Errorf("step %q: ConfigMessage = %q, want %q (must NOT be google.protobuf.Empty so BMW YAML config keys pass STRICT_PROTO)", stepType, c.ConfigMessage, wantMsg)
+		}
+	}
+}
+
 // TestContractRegistry_PluginContractsMatchTypedStepFactories asserts that the
 // declared STEP contract types exactly match the set of typed step types the
 // plugin actually serves (TypedStepTypes). Drift between contracts and
