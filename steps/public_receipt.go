@@ -165,10 +165,17 @@ func PublicReceiptHandler(
 
 // mergePublicReceipt collapses the YAML-`config:`-sourced typed config and the
 // runtime-sourced typed input into a single PublicReceiptRequest view that the
-// rest of the handler can read uniformly. Config wins on field collisions
-// because BMW-style pipelines authoritatively declare parameters in `config:`;
-// Input is the fallback path used by direct gRPC dispatch (e.g. the integration
-// test) where Config is the zero value.
+// rest of the handler can read uniformly.
+//
+// Precedence semantics: a non-zero value in Config overrides the corresponding
+// Input field; a zero / empty / nil Config value falls back to Input. proto3
+// scalars cannot distinguish "unset" from "explicit zero" without wrapper or
+// `optional` types, so empty strings, the int64 zero value, and an empty
+// repeated field in Config cannot be used to clear an Input field. BMW
+// pipelines populate every parameter via `config:` with non-zero values and
+// leave Input empty (pc.Current carries no Request-shaped data), so this
+// asymmetry does not bite production. Direct gRPC callers populate only
+// Input.
 func mergePublicReceipt(cfg *auditv1.PublicReceiptConfig, in *auditv1.PublicReceiptRequest) *auditv1.PublicReceiptRequest {
 	merged := &auditv1.PublicReceiptRequest{}
 	if in != nil {
