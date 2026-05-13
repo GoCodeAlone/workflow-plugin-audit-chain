@@ -58,7 +58,7 @@ func TestPublicReceiptHandler_ConfigPathTakesPrecedence(t *testing.T) {
 	_, err := steps.PublicReceiptHandler(context.Background(), sdk.TypedStepRequest[*auditv1.PublicReceiptConfig, *auditv1.PublicReceiptRequest]{
 		Config: &auditv1.PublicReceiptConfig{
 			Ledger:       ledger,
-			Sequence:     42,
+			Sequence:     "42",
 			RedactFields: []string{"contributor_user_id"},
 		},
 		Input: &auditv1.PublicReceiptRequest{},
@@ -68,6 +68,57 @@ func TestPublicReceiptHandler_ConfigPathTakesPrecedence(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), ledger) {
 		t.Errorf("error should mention ledger from Config (%q), got: %v", ledger, err)
+	}
+}
+
+// TestPublicReceiptHandler_StringSequenceParsed verifies the v0.2.3 type-drift
+// bridge: PublicReceiptConfig.sequence is `string` (so BMW templated values
+// pass strict-proto validation) and the handler parses it to int64 internally.
+// A valid numeric string ("42") must produce the same int64 in merged input as
+// the int64 path; the ledger check fails downstream (DB not registered) which
+// confirms the merge reached past the parse step.
+func TestPublicReceiptHandler_StringSequenceParsed(t *testing.T) {
+	const ledger = "receipt-test-string-sequence"
+	modules.UnregisterDB(ledger)
+	t.Cleanup(func() { modules.UnregisterDB(ledger) })
+
+	_, err := steps.PublicReceiptHandler(context.Background(), sdk.TypedStepRequest[*auditv1.PublicReceiptConfig, *auditv1.PublicReceiptRequest]{
+		Config: &auditv1.PublicReceiptConfig{
+			Ledger:   ledger,
+			Sequence: "42",
+		},
+		Input: &auditv1.PublicReceiptRequest{},
+	})
+	if err == nil {
+		t.Fatal("expected DB-not-registered error after successful parse, got nil")
+	}
+	if !strings.Contains(err.Error(), ledger) {
+		t.Errorf("error should mention ledger %q (parse succeeded; DB lookup failed), got: %v", ledger, err)
+	}
+	if strings.Contains(err.Error(), "invalid sequence") {
+		t.Errorf("a valid numeric string must not trigger an invalid-sequence error, got: %v", err)
+	}
+}
+
+// TestPublicReceiptHandler_InvalidStringSequence verifies that a non-numeric
+// string in Config.sequence returns a parse error before the DB lookup runs.
+func TestPublicReceiptHandler_InvalidStringSequence(t *testing.T) {
+	const ledger = "receipt-test-invalid-sequence"
+	modules.UnregisterDB(ledger)
+	t.Cleanup(func() { modules.UnregisterDB(ledger) })
+
+	_, err := steps.PublicReceiptHandler(context.Background(), sdk.TypedStepRequest[*auditv1.PublicReceiptConfig, *auditv1.PublicReceiptRequest]{
+		Config: &auditv1.PublicReceiptConfig{
+			Ledger:   ledger,
+			Sequence: "not-a-number",
+		},
+		Input: &auditv1.PublicReceiptRequest{},
+	})
+	if err == nil {
+		t.Fatal("expected parse error for non-numeric sequence, got nil")
+	}
+	if !strings.Contains(err.Error(), "invalid sequence") {
+		t.Errorf("error should mention invalid sequence, got: %v", err)
 	}
 }
 
@@ -84,7 +135,7 @@ func TestPublicReceiptHandler_ConfigOverridesInput(t *testing.T) {
 	})
 
 	_, err := steps.PublicReceiptHandler(context.Background(), sdk.TypedStepRequest[*auditv1.PublicReceiptConfig, *auditv1.PublicReceiptRequest]{
-		Config: &auditv1.PublicReceiptConfig{Ledger: cfgLedger, Sequence: 1},
+		Config: &auditv1.PublicReceiptConfig{Ledger: cfgLedger, Sequence: "1"},
 		Input:  &auditv1.PublicReceiptRequest{Ledger: inputLedger, Sequence: 999},
 	})
 	if err == nil {

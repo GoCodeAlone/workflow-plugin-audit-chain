@@ -4,6 +4,35 @@ All notable changes to `workflow-plugin-audit-chain` are documented in this
 file. The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.3] - 2026-05-13
+
+### Fixed
+
+- **strict-proto type drift** in two `step.audit.*` Config messages, surfaced
+  by BMW local smoke against `workflow-server v0.51.5` after v0.2.2 introduced
+  the typed Config messages. BMW pipelines populate these fields via Go
+  templates (`"{{ .item.proof_data }}"`, `"{{ .item.audit_sequence }}"`) that
+  render as raw strings; strict-proto's `bytes` and `int64` field kinds reject
+  those values:
+  - `PollAnchorConfirmationConfig.proof_data`: `bytes` → `string`. proto3 JSON
+    encoding requires `bytes` to be base64-encoded; BMW does not base64-encode.
+    Handler merge converts string → []byte by raw byte copy; providers treat
+    `ProofData` as an opaque pass-through so no decoding is applied.
+  - `PublicReceiptConfig.sequence`: `int64` → `string`. The strict-proto
+    decoder rejects string → int64 coercion at the typed-config boundary even
+    with engine-side scalar-coerce. Handler merge parses the string with
+    `strconv.ParseInt` and returns a typed error on a non-numeric value.
+- `testdata/compat-strict-proto-config.yaml` updated to mirror the BMW
+  templated-string shape (`sequence: "1"`, `proof_data: "raw-proof-bytes"`)
+  so the compat-gate continues to lock the v0.2.3 contract.
+
+### Notes
+
+- `PollAnchorConfirmationRequest.proof_data` and `PublicReceiptRequest.sequence`
+  (the gRPC Input messages) are unchanged. Only the Config messages are
+  affected; direct-gRPC dispatch (integration_test.go, third-party callers)
+  continues to use `bytes` and `int64` as before.
+
 ## [0.2.2] - 2026-05-13
 
 ### Fixed

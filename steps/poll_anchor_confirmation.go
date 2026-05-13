@@ -65,6 +65,14 @@ func PollAnchorConfirmationHandler(
 		ProofData:    input.GetProofData(),
 		Confirmation: providers.ConfirmationLevel(prevConfirmation),
 	}
+	// NB: input.ProofData is []byte from the gRPC Input path. The Config path
+	// supplies proof_data as a raw string (v0.2.3 — strict-proto rejects
+	// non-base64 bytes from BMW templates); mergePollAnchorConfirmation
+	// converts string→[]byte by direct byte copy (treats Config value as raw
+	// opaque proof bytes; no base64 decode is applied). Providers currently
+	// treat ProofData as opaque pass-through, so the raw-string semantics are
+	// safe; if a future provider requires base64-encoded proof, that decode is
+	// the provider's responsibility.
 
 	v, err := p.Verify(ctx, anchor)
 	if err != nil {
@@ -135,6 +143,14 @@ func PollAnchorConfirmationHandler(
 // empty (pc.Current carries no Request-shaped data), so this asymmetry does
 // not bite production. Direct gRPC callers (integration_test.go) populate only
 // Input.
+//
+// Type-drift bridge (v0.2.3): PollAnchorConfirmationConfig.proof_data is
+// `string` (not `bytes`) so BMW templated values like
+// `"{{ .item.proof_data }}"` pass strict-proto validation without requiring
+// base64 encoding. PollAnchorConfirmationRequest.proof_data remains `bytes`
+// for the gRPC Input path. The merge converts string→[]byte by raw byte
+// copy (no base64 decode); providers treat ProofData as an opaque
+// pass-through so the raw-string semantics are safe.
 func mergePollAnchorConfirmation(cfg *auditv1.PollAnchorConfirmationConfig, in *auditv1.PollAnchorConfirmationRequest) *auditv1.PollAnchorConfirmationRequest {
 	merged := &auditv1.PollAnchorConfirmationRequest{}
 	if in != nil {
@@ -154,8 +170,8 @@ func mergePollAnchorConfirmation(cfg *auditv1.PollAnchorConfirmationConfig, in *
 		if v := cfg.GetExternalId(); v != "" {
 			merged.ExternalId = v
 		}
-		if v := cfg.GetProofData(); len(v) > 0 {
-			merged.ProofData = v
+		if v := cfg.GetProofData(); v != "" {
+			merged.ProofData = []byte(v)
 		}
 		if v := cfg.GetLedger(); v != "" {
 			merged.Ledger = v

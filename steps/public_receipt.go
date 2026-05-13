@@ -65,7 +65,10 @@ func PublicReceiptHandler(
 	ctx context.Context,
 	req sdk.TypedStepRequest[*auditv1.PublicReceiptConfig, *auditv1.PublicReceiptRequest],
 ) (*sdk.TypedStepResult[*auditv1.PublicReceiptResponse], error) {
-	input := mergePublicReceipt(req.Config, req.Input)
+	input, err := mergePublicReceipt(req.Config, req.Input)
+	if err != nil {
+		return nil, fmt.Errorf("step.audit.public_receipt: %w", err)
+	}
 
 	if input.GetLedger() == "" {
 		return nil, fmt.Errorf("step.audit.public_receipt: ledger is required")
@@ -176,7 +179,14 @@ func PublicReceiptHandler(
 // leave Input empty (pc.Current carries no Request-shaped data), so this
 // asymmetry does not bite production. Direct gRPC callers populate only
 // Input.
-func mergePublicReceipt(cfg *auditv1.PublicReceiptConfig, in *auditv1.PublicReceiptRequest) *auditv1.PublicReceiptRequest {
+//
+// Type-drift bridge (v0.2.3): PublicReceiptConfig.sequence is `string` so
+// BMW templated values like `"{{ .item.audit_sequence }}"` pass strict-proto
+// validation. PublicReceiptRequest.sequence remains `int64` for the gRPC
+// Input path. mergePublicReceipt parses the Config string to int64 here;
+// the rest of the handler reads the int64 from PublicReceiptRequest. Errors
+// returned to the caller as a non-nil error.
+func mergePublicReceipt(cfg *auditv1.PublicReceiptConfig, in *auditv1.PublicReceiptRequest) (*auditv1.PublicReceiptRequest, error) {
 	merged := &auditv1.PublicReceiptRequest{}
 	if in != nil {
 		merged.Ledger = in.GetLedger()
@@ -187,14 +197,18 @@ func mergePublicReceipt(cfg *auditv1.PublicReceiptConfig, in *auditv1.PublicRece
 		if v := cfg.GetLedger(); v != "" {
 			merged.Ledger = v
 		}
-		if v := cfg.GetSequence(); v != 0 {
-			merged.Sequence = v
+		if v := cfg.GetSequence(); v != "" {
+			seq, err := strconv.ParseInt(v, 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("invalid sequence %q: %w", v, err)
+			}
+			merged.Sequence = seq
 		}
 		if v := cfg.GetRedactFields(); len(v) > 0 {
 			merged.RedactFields = append([]string(nil), v...)
 		}
 	}
-	return merged
+	return merged, nil
 }
 
 // ── redaction ─────────────────────────────────────────────────────────────────
