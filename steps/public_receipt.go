@@ -13,7 +13,6 @@ import (
 	auditv1 "github.com/GoCodeAlone/workflow-plugin-audit-chain/gen"
 	"github.com/GoCodeAlone/workflow-plugin-audit-chain/modules"
 	sdk "github.com/GoCodeAlone/workflow/plugin/external/sdk"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // ── receipt document types (no map[string]any) ────────────────────────────────
@@ -58,11 +57,15 @@ type receiptAnchor struct {
 // It builds a self-contained verifiable receipt JSON that includes the audit
 // entry, its Merkle inclusion proof, all covering anchor records, and an
 // optional pseudonymisation map for redacted payload fields.
+//
+// BMW-style YAML pipelines supply all parameters via the step's `config:`
+// block, so the handler reads from req.Config first and falls back to req.Input
+// for direct (integration-test) gRPC dispatch.
 func PublicReceiptHandler(
 	ctx context.Context,
-	req sdk.TypedStepRequest[*emptypb.Empty, *auditv1.PublicReceiptRequest],
+	req sdk.TypedStepRequest[*auditv1.PublicReceiptConfig, *auditv1.PublicReceiptRequest],
 ) (*sdk.TypedStepResult[*auditv1.PublicReceiptResponse], error) {
-	input := req.Input
+	input := mergePublicReceipt(req.Config, req.Input)
 
 	if input.GetLedger() == "" {
 		return nil, fmt.Errorf("step.audit.public_receipt: ledger is required")
@@ -158,6 +161,33 @@ func PublicReceiptHandler(
 			// are sufficient for offline verification.
 		},
 	}, nil
+}
+
+// mergePublicReceipt collapses the YAML-`config:`-sourced typed config and the
+// runtime-sourced typed input into a single PublicReceiptRequest view that the
+// rest of the handler can read uniformly. Config wins on field collisions
+// because BMW-style pipelines authoritatively declare parameters in `config:`;
+// Input is the fallback path used by direct gRPC dispatch (e.g. the integration
+// test) where Config is the zero value.
+func mergePublicReceipt(cfg *auditv1.PublicReceiptConfig, in *auditv1.PublicReceiptRequest) *auditv1.PublicReceiptRequest {
+	merged := &auditv1.PublicReceiptRequest{}
+	if in != nil {
+		merged.Ledger = in.GetLedger()
+		merged.Sequence = in.GetSequence()
+		merged.RedactFields = append(merged.RedactFields, in.GetRedactFields()...)
+	}
+	if cfg != nil {
+		if v := cfg.GetLedger(); v != "" {
+			merged.Ledger = v
+		}
+		if v := cfg.GetSequence(); v != 0 {
+			merged.Sequence = v
+		}
+		if v := cfg.GetRedactFields(); len(v) > 0 {
+			merged.RedactFields = append([]string(nil), v...)
+		}
+	}
+	return merged
 }
 
 // ── redaction ─────────────────────────────────────────────────────────────────

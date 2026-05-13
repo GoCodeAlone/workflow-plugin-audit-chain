@@ -57,6 +57,7 @@
             "kind": "step",
             "type": "step.audit.poll_anchor_confirmation",
             "mode": "strict_proto",
+            "config": "workflow.plugin.audit.v1.PollAnchorConfirmationConfig",
             "input": "workflow.plugin.audit.v1.PollAnchorConfirmationRequest",
             "output": "workflow.plugin.audit.v1.PollAnchorConfirmationResponse"
         },
@@ -71,6 +72,7 @@
             "kind": "step",
             "type": "step.audit.public_receipt",
             "mode": "strict_proto",
+            "config": "workflow.plugin.audit.v1.PublicReceiptConfig",
             "input": "workflow.plugin.audit.v1.PublicReceiptRequest",
             "output": "workflow.plugin.audit.v1.PublicReceiptResponse"
         },

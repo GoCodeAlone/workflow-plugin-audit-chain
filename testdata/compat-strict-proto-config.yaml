@@ -1,0 +1,64 @@
+# Minimal config exercising the v0.2.2 strict-proto-config-fields fix:
+# `step.audit.poll_anchor_confirmation` and `step.audit.public_receipt` both
+# supply parameters via the YAML `config:` block. Pre-v0.2.2 the plugin
+# declared `google.protobuf.Empty` as ConfigMessage, so wfctl + the engine
+# rejected any key in `config:` under STRICT_PROTO. Post-v0.2.2 the plugin
+# advertises typed Config messages (PollAnchorConfirmationConfig +
+# PublicReceiptConfig) so the BMW-style `config:` block validates.
+
+name: audit-chain-strict-proto-config-compat
+
+modules:
+  - name: bmw-financial
+    type: audit.ledger
+    config:
+      name: bmw-financial
+      description: BMW financial ledger
+      anchor_providers: ["opentimestamps"]
+      anchor_schedule: "@hourly"
+      anchor_min_entries: 1
+      dsn: postgres://user:pass@localhost:5432/audit?sslmode=disable
+
+  - name: opentimestamps
+    type: audit.anchor_provider.opentimestamps
+    config:
+      calendar_servers: ["https://alice.btc.calendar.opentimestamps.org"]
+      http_timeout_ms: 30000
+
+workflows:
+  pipelines:
+    pipelines:
+      poll-anchor-confirmations:
+        # Exercises step.audit.poll_anchor_confirmation with every field BMW
+        # supplies (anchor_id / provider / external_id / proof_data / ledger).
+        trigger:
+          type: trigger.http
+          config:
+            method: POST
+            path: /audit/poll
+        steps:
+          - name: poll
+            type: step.audit.poll_anchor_confirmation
+            config:
+              anchor_id: "1"
+              provider: opentimestamps
+              external_id: abc123
+              proof_data: ""
+              ledger: bmw-financial
+
+      build-public-receipt:
+        # Exercises step.audit.public_receipt with every field BMW supplies
+        # (ledger / sequence / redact_fields).
+        trigger:
+          type: trigger.http
+          config:
+            method: GET
+            path: /audit/receipt
+        steps:
+          - name: get_receipt
+            type: step.audit.public_receipt
+            config:
+              ledger: bmw-financial
+              sequence: 1
+              redact_fields:
+                - contributor_user_id

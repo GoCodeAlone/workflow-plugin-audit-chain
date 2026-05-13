@@ -15,11 +15,14 @@ import (
 
 // ── mock AnchorProvider ───────────────────────────────────────────────────────
 
-// mockAnchorProvider lets tests control the result returned by Verify.
+// mockAnchorProvider lets tests control the result returned by Verify and
+// records the most recent Anchor argument so tests can assert on the values
+// the handler propagated from Config / Input.
 type mockAnchorProvider struct {
 	providerName string
 	verifyResult providers.Verification
 	verifyErr    error
+	lastAnchor   providers.Anchor
 }
 
 func (m *mockAnchorProvider) Name() string { return m.providerName }
@@ -28,7 +31,8 @@ func (m *mockAnchorProvider) Anchor(_ context.Context, _ providers.MerkleRoot) (
 	return providers.Anchor{}, nil
 }
 
-func (m *mockAnchorProvider) Verify(_ context.Context, _ providers.Anchor) (providers.Verification, error) {
+func (m *mockAnchorProvider) Verify(_ context.Context, a providers.Anchor) (providers.Verification, error) {
+	m.lastAnchor = a
 	return m.verifyResult, m.verifyErr
 }
 

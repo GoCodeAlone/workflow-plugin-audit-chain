@@ -1,0 +1,60 @@
+name: workflow-compat
+# Compatibility gate against the latest wfctl release. Builds the plugin and
+# runs `wfctl validate --plugin-dir <build-dir>` against a minimal config that
+# exercises the v0.2.2 strict-proto-config-fields fix path:
+# step.audit.poll_anchor_confirmation and step.audit.public_receipt with every
+# field BMW supplies via the YAML `config:` block. Fails the PR if a future
+# change reverts ConfigMessage back to google.protobuf.Empty (which would
+# silently drop BMW's config keys under STRICT_PROTO).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      wfctl_version:
+        description: 'wfctl version to validate against (e.g. v0.51.5, or "latest")'
+        required: false
+        default: latest
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      # Build the plugin binary so `wfctl validate --plugin-dir` can load the
+      # manifest + typed contracts. The plugin-dir layout expected by
+      # schema.LoadPluginTypesFromDir is `<dir>/<plugin-name>/plugin.json`.
+      - name: Build plugin
+        run: |
+          set -eux
+          mkdir -p build/audit-chain
+          GOWORK=off go build -o build/audit-chain/workflow-plugin-audit-chain ./cmd/workflow-plugin-audit-chain
+          cp plugin.json plugin.contracts.json build/audit-chain/
+
+      - uses: GoCodeAlone/setup-wfctl@bcd880980f5bbe8d192d0c20ff6279d25331f956
+        with:
+          version: ${{ github.event.inputs.wfctl_version || 'latest' }}
+
+      - name: wfctl version
+        run: wfctl --version || wfctl version || true
+
+      # Strict-proto config-fields assertion. Each step type below now declares
+      # a typed Config message (PollAnchorConfirmationConfig / PublicReceiptConfig);
+      # wfctl + the engine validate every YAML `config:` key against those
+      # messages. Pre-v0.2.2 (ConfigMessage = google.protobuf.Empty) this would
+      # reject `anchor_id`, `ledger`, `sequence`, etc. as unknown fields.
+      - name: Validate strict-proto config-fields compat
+        run: |
+          set -eux
+          wfctl validate --plugin-dir ./build --skip-unknown-types testdata/compat-strict-proto-config.yaml

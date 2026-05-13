@@ -10,12 +10,11 @@ import (
 	"github.com/GoCodeAlone/workflow-plugin-audit-chain/modules"
 	"github.com/GoCodeAlone/workflow-plugin-audit-chain/steps"
 	sdk "github.com/GoCodeAlone/workflow/plugin/external/sdk"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func TestPublicReceiptHandler_EmptyLedger(t *testing.T) {
-	_, err := steps.PublicReceiptHandler(context.Background(), sdk.TypedStepRequest[*emptypb.Empty, *auditv1.PublicReceiptRequest]{
-		Config: &emptypb.Empty{},
+	_, err := steps.PublicReceiptHandler(context.Background(), sdk.TypedStepRequest[*auditv1.PublicReceiptConfig, *auditv1.PublicReceiptRequest]{
+		Config: &auditv1.PublicReceiptConfig{},
 		Input:  &auditv1.PublicReceiptRequest{Ledger: ""},
 	})
 	if err == nil {
@@ -31,8 +30,8 @@ func TestPublicReceiptHandler_DBNotRegistered(t *testing.T) {
 	modules.UnregisterDB(ledger)
 	t.Cleanup(func() { modules.UnregisterDB(ledger) })
 
-	_, err := steps.PublicReceiptHandler(context.Background(), sdk.TypedStepRequest[*emptypb.Empty, *auditv1.PublicReceiptRequest]{
-		Config: &emptypb.Empty{},
+	_, err := steps.PublicReceiptHandler(context.Background(), sdk.TypedStepRequest[*auditv1.PublicReceiptConfig, *auditv1.PublicReceiptRequest]{
+		Config: &auditv1.PublicReceiptConfig{},
 		Input: &auditv1.PublicReceiptRequest{
 			Ledger:   ledger,
 			Sequence: 5,
@@ -43,6 +42,59 @@ func TestPublicReceiptHandler_DBNotRegistered(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), ledger) {
 		t.Errorf("error should mention ledger name %q, got: %v", ledger, err)
+	}
+}
+
+// TestPublicReceiptHandler_ConfigPathTakesPrecedence verifies that BMW-style
+// YAML supplying parameters via `config:` lands in the handler when Input is
+// the zero value. The handler reaches the DB-not-registered path using the
+// ledger from Config, proving the merge picked Config up correctly. Load-
+// bearing contract for the v0.2.2 strict-proto-config-fields fix.
+func TestPublicReceiptHandler_ConfigPathTakesPrecedence(t *testing.T) {
+	const ledger = "receipt-test-cfg-precedence"
+	modules.UnregisterDB(ledger)
+	t.Cleanup(func() { modules.UnregisterDB(ledger) })
+
+	_, err := steps.PublicReceiptHandler(context.Background(), sdk.TypedStepRequest[*auditv1.PublicReceiptConfig, *auditv1.PublicReceiptRequest]{
+		Config: &auditv1.PublicReceiptConfig{
+			Ledger:       ledger,
+			Sequence:     42,
+			RedactFields: []string{"contributor_user_id"},
+		},
+		Input: &auditv1.PublicReceiptRequest{},
+	})
+	if err == nil {
+		t.Fatal("expected DB-not-registered error using Config ledger, got nil")
+	}
+	if !strings.Contains(err.Error(), ledger) {
+		t.Errorf("error should mention ledger from Config (%q), got: %v", ledger, err)
+	}
+}
+
+// TestPublicReceiptHandler_ConfigOverridesInput verifies the merge precedence:
+// when Config and Input both populate the same field, Config wins.
+func TestPublicReceiptHandler_ConfigOverridesInput(t *testing.T) {
+	const cfgLedger = "receipt-test-cfg-override"
+	const inputLedger = "receipt-test-input-loser"
+	modules.UnregisterDB(cfgLedger)
+	modules.UnregisterDB(inputLedger)
+	t.Cleanup(func() {
+		modules.UnregisterDB(cfgLedger)
+		modules.UnregisterDB(inputLedger)
+	})
+
+	_, err := steps.PublicReceiptHandler(context.Background(), sdk.TypedStepRequest[*auditv1.PublicReceiptConfig, *auditv1.PublicReceiptRequest]{
+		Config: &auditv1.PublicReceiptConfig{Ledger: cfgLedger, Sequence: 1},
+		Input:  &auditv1.PublicReceiptRequest{Ledger: inputLedger, Sequence: 999},
+	})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), cfgLedger) {
+		t.Errorf("error should mention Config ledger (%q), got: %v", cfgLedger, err)
+	}
+	if strings.Contains(err.Error(), inputLedger) {
+		t.Errorf("error should not mention Input ledger (%q): Config must win, got: %v", inputLedger, err)
 	}
 }
 

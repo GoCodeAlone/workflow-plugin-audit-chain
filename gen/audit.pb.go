@@ -968,6 +968,94 @@ func (x *AnchorRecord) GetAnchoredAt() string {
 	return ""
 }
 
+// PollAnchorConfirmationConfig is the YAML config for step.audit.poll_anchor_confirmation.
+// All fields are supplied via the pipeline step's `config:` block; the engine
+// resolves templates against `pc.Current` before dispatching the step.
+// Mirrors PollAnchorConfirmationRequest one-to-one; kept as a separate Config
+// message so STRICT_PROTO validation does not reject YAML keys against the
+// Empty config previously declared.
+type PollAnchorConfirmationConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// anchor_id is the audit_anchors.id (BIGSERIAL, passed as string) of the pending anchor row.
+	AnchorId string `protobuf:"bytes,1,opt,name=anchor_id,json=anchorId,proto3" json:"anchor_id,omitempty"`
+	// provider is the anchor provider name stored in audit_anchors.provider.
+	Provider string `protobuf:"bytes,2,opt,name=provider,proto3" json:"provider,omitempty"`
+	// external_id is the provider's anchor reference stored in audit_anchors.external_id.
+	ExternalId string `protobuf:"bytes,3,opt,name=external_id,json=externalId,proto3" json:"external_id,omitempty"`
+	// proof_data is the opaque provider-specific proof bytes stored in audit_anchors.proof_data.
+	ProofData []byte `protobuf:"bytes,4,opt,name=proof_data,json=proofData,proto3" json:"proof_data,omitempty"`
+	// ledger identifies which ledger's DB handle to use when updating
+	// audit_anchors.confirmation after a status change.
+	Ledger        string `protobuf:"bytes,5,opt,name=ledger,proto3" json:"ledger,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PollAnchorConfirmationConfig) Reset() {
+	*x = PollAnchorConfirmationConfig{}
+	mi := &file_audit_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PollAnchorConfirmationConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PollAnchorConfirmationConfig) ProtoMessage() {}
+
+func (x *PollAnchorConfirmationConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_audit_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PollAnchorConfirmationConfig.ProtoReflect.Descriptor instead.
+func (*PollAnchorConfirmationConfig) Descriptor() ([]byte, []int) {
+	return file_audit_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *PollAnchorConfirmationConfig) GetAnchorId() string {
+	if x != nil {
+		return x.AnchorId
+	}
+	return ""
+}
+
+func (x *PollAnchorConfirmationConfig) GetProvider() string {
+	if x != nil {
+		return x.Provider
+	}
+	return ""
+}
+
+func (x *PollAnchorConfirmationConfig) GetExternalId() string {
+	if x != nil {
+		return x.ExternalId
+	}
+	return ""
+}
+
+func (x *PollAnchorConfirmationConfig) GetProofData() []byte {
+	if x != nil {
+		return x.ProofData
+	}
+	return nil
+}
+
+func (x *PollAnchorConfirmationConfig) GetLedger() string {
+	if x != nil {
+		return x.Ledger
+	}
+	return ""
+}
+
 // PollAnchorConfirmationRequest is the input for step.audit.poll_anchor_confirmation.
 // Used by the periodic confirmation cron (e.g. OpenTimestamps may take hours-to-days
 // to finalize on Bitcoin).
@@ -990,7 +1078,7 @@ type PollAnchorConfirmationRequest struct {
 
 func (x *PollAnchorConfirmationRequest) Reset() {
 	*x = PollAnchorConfirmationRequest{}
-	mi := &file_audit_proto_msgTypes[13]
+	mi := &file_audit_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1002,7 +1090,7 @@ func (x *PollAnchorConfirmationRequest) String() string {
 func (*PollAnchorConfirmationRequest) ProtoMessage() {}
 
 func (x *PollAnchorConfirmationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_audit_proto_msgTypes[13]
+	mi := &file_audit_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1015,7 +1103,7 @@ func (x *PollAnchorConfirmationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PollAnchorConfirmationRequest.ProtoReflect.Descriptor instead.
 func (*PollAnchorConfirmationRequest) Descriptor() ([]byte, []int) {
-	return file_audit_proto_rawDescGZIP(), []int{13}
+	return file_audit_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *PollAnchorConfirmationRequest) GetAnchorId() string {
@@ -1081,7 +1169,7 @@ type PollAnchorConfirmationResponse struct {
 
 func (x *PollAnchorConfirmationResponse) Reset() {
 	*x = PollAnchorConfirmationResponse{}
-	mi := &file_audit_proto_msgTypes[14]
+	mi := &file_audit_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1093,7 +1181,7 @@ func (x *PollAnchorConfirmationResponse) String() string {
 func (*PollAnchorConfirmationResponse) ProtoMessage() {}
 
 func (x *PollAnchorConfirmationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_audit_proto_msgTypes[14]
+	mi := &file_audit_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1106,7 +1194,7 @@ func (x *PollAnchorConfirmationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PollAnchorConfirmationResponse.ProtoReflect.Descriptor instead.
 func (*PollAnchorConfirmationResponse) Descriptor() ([]byte, []int) {
-	return file_audit_proto_rawDescGZIP(), []int{14}
+	return file_audit_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *PollAnchorConfirmationResponse) GetPreviousConfirmation() string {
@@ -1164,7 +1252,7 @@ type ProofRequest struct {
 
 func (x *ProofRequest) Reset() {
 	*x = ProofRequest{}
-	mi := &file_audit_proto_msgTypes[15]
+	mi := &file_audit_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1176,7 +1264,7 @@ func (x *ProofRequest) String() string {
 func (*ProofRequest) ProtoMessage() {}
 
 func (x *ProofRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_audit_proto_msgTypes[15]
+	mi := &file_audit_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1189,7 +1277,7 @@ func (x *ProofRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProofRequest.ProtoReflect.Descriptor instead.
 func (*ProofRequest) Descriptor() ([]byte, []int) {
-	return file_audit_proto_rawDescGZIP(), []int{15}
+	return file_audit_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ProofRequest) GetLedger() string {
@@ -1223,7 +1311,7 @@ type ProofResponse struct {
 
 func (x *ProofResponse) Reset() {
 	*x = ProofResponse{}
-	mi := &file_audit_proto_msgTypes[16]
+	mi := &file_audit_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1235,7 +1323,7 @@ func (x *ProofResponse) String() string {
 func (*ProofResponse) ProtoMessage() {}
 
 func (x *ProofResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_audit_proto_msgTypes[16]
+	mi := &file_audit_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1248,7 +1336,7 @@ func (x *ProofResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProofResponse.ProtoReflect.Descriptor instead.
 func (*ProofResponse) Descriptor() ([]byte, []int) {
-	return file_audit_proto_rawDescGZIP(), []int{16}
+	return file_audit_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ProofResponse) GetEntry() *Entry {
@@ -1318,7 +1406,7 @@ type Entry struct {
 
 func (x *Entry) Reset() {
 	*x = Entry{}
-	mi := &file_audit_proto_msgTypes[17]
+	mi := &file_audit_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1330,7 +1418,7 @@ func (x *Entry) String() string {
 func (*Entry) ProtoMessage() {}
 
 func (x *Entry) ProtoReflect() protoreflect.Message {
-	mi := &file_audit_proto_msgTypes[17]
+	mi := &file_audit_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1343,7 +1431,7 @@ func (x *Entry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Entry.ProtoReflect.Descriptor instead.
 func (*Entry) Descriptor() ([]byte, []int) {
-	return file_audit_proto_rawDescGZIP(), []int{17}
+	return file_audit_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *Entry) GetSequence() int64 {
@@ -1409,6 +1497,77 @@ func (x *Entry) GetMetadata() []byte {
 	return nil
 }
 
+// PublicReceiptConfig is the YAML config for step.audit.public_receipt.
+// All fields are supplied via the pipeline step's `config:` block; the engine
+// resolves templates against `pc.Current` before dispatching the step.
+// Mirrors PublicReceiptRequest one-to-one; kept as a separate Config message
+// so STRICT_PROTO validation does not reject YAML keys against the Empty
+// config previously declared.
+type PublicReceiptConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// ledger is the partition key.
+	Ledger string `protobuf:"bytes,1,opt,name=ledger,proto3" json:"ledger,omitempty"`
+	// sequence is the entry sequence number for which to generate the public receipt.
+	Sequence int64 `protobuf:"varint,2,opt,name=sequence,proto3" json:"sequence,omitempty"`
+	// redact_fields lists JSON paths in payload to redact with stable per-receipt
+	// pseudonyms (e.g. ["contributor_user_id"]). The redacted-payload + pseudonym
+	// mapping is included in the receipt; the entry_hash remains verifiable.
+	RedactFields  []string `protobuf:"bytes,3,rep,name=redact_fields,json=redactFields,proto3" json:"redact_fields,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PublicReceiptConfig) Reset() {
+	*x = PublicReceiptConfig{}
+	mi := &file_audit_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PublicReceiptConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PublicReceiptConfig) ProtoMessage() {}
+
+func (x *PublicReceiptConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_audit_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PublicReceiptConfig.ProtoReflect.Descriptor instead.
+func (*PublicReceiptConfig) Descriptor() ([]byte, []int) {
+	return file_audit_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *PublicReceiptConfig) GetLedger() string {
+	if x != nil {
+		return x.Ledger
+	}
+	return ""
+}
+
+func (x *PublicReceiptConfig) GetSequence() int64 {
+	if x != nil {
+		return x.Sequence
+	}
+	return 0
+}
+
+func (x *PublicReceiptConfig) GetRedactFields() []string {
+	if x != nil {
+		return x.RedactFields
+	}
+	return nil
+}
+
 // PublicReceiptRequest is the input for step.audit.public_receipt.
 type PublicReceiptRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1426,7 +1585,7 @@ type PublicReceiptRequest struct {
 
 func (x *PublicReceiptRequest) Reset() {
 	*x = PublicReceiptRequest{}
-	mi := &file_audit_proto_msgTypes[18]
+	mi := &file_audit_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1438,7 +1597,7 @@ func (x *PublicReceiptRequest) String() string {
 func (*PublicReceiptRequest) ProtoMessage() {}
 
 func (x *PublicReceiptRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_audit_proto_msgTypes[18]
+	mi := &file_audit_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1451,7 +1610,7 @@ func (x *PublicReceiptRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PublicReceiptRequest.ProtoReflect.Descriptor instead.
 func (*PublicReceiptRequest) Descriptor() ([]byte, []int) {
-	return file_audit_proto_rawDescGZIP(), []int{18}
+	return file_audit_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *PublicReceiptRequest) GetLedger() string {
@@ -1490,7 +1649,7 @@ type PublicReceiptResponse struct {
 
 func (x *PublicReceiptResponse) Reset() {
 	*x = PublicReceiptResponse{}
-	mi := &file_audit_proto_msgTypes[19]
+	mi := &file_audit_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1502,7 +1661,7 @@ func (x *PublicReceiptResponse) String() string {
 func (*PublicReceiptResponse) ProtoMessage() {}
 
 func (x *PublicReceiptResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_audit_proto_msgTypes[19]
+	mi := &file_audit_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1515,7 +1674,7 @@ func (x *PublicReceiptResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PublicReceiptResponse.ProtoReflect.Descriptor instead.
 func (*PublicReceiptResponse) Descriptor() ([]byte, []int) {
-	return file_audit_proto_rawDescGZIP(), []int{19}
+	return file_audit_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *PublicReceiptResponse) GetReceiptUrl() string {
@@ -1615,7 +1774,15 @@ const file_audit_proto_rawDesc = "" +
 	"externalId\x12\"\n" +
 	"\fconfirmation\x18\x03 \x01(\tR\fconfirmation\x12\x1f\n" +
 	"\vanchored_at\x18\x04 \x01(\tR\n" +
-	"anchoredAt\"\xb0\x01\n" +
+	"anchoredAt\"\xaf\x01\n" +
+	"\x1cPollAnchorConfirmationConfig\x12\x1b\n" +
+	"\tanchor_id\x18\x01 \x01(\tR\banchorId\x12\x1a\n" +
+	"\bprovider\x18\x02 \x01(\tR\bprovider\x12\x1f\n" +
+	"\vexternal_id\x18\x03 \x01(\tR\n" +
+	"externalId\x12\x1d\n" +
+	"\n" +
+	"proof_data\x18\x04 \x01(\fR\tproofData\x12\x16\n" +
+	"\x06ledger\x18\x05 \x01(\tR\x06ledger\"\xb0\x01\n" +
 	"\x1dPollAnchorConfirmationRequest\x12\x1b\n" +
 	"\tanchor_id\x18\x01 \x01(\tR\banchorId\x12\x1a\n" +
 	"\bprovider\x18\x02 \x01(\tR\bprovider\x12\x1f\n" +
@@ -1654,7 +1821,11 @@ const file_audit_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\a \x01(\tR\tcreatedAt\x12\x14\n" +
 	"\x05actor\x18\b \x01(\tR\x05actor\x12\x1a\n" +
-	"\bmetadata\x18\t \x01(\fR\bmetadata\"o\n" +
+	"\bmetadata\x18\t \x01(\fR\bmetadata\"n\n" +
+	"\x13PublicReceiptConfig\x12\x16\n" +
+	"\x06ledger\x18\x01 \x01(\tR\x06ledger\x12\x1a\n" +
+	"\bsequence\x18\x02 \x01(\x03R\bsequence\x12#\n" +
+	"\rredact_fields\x18\x03 \x03(\tR\fredactFields\"o\n" +
 	"\x14PublicReceiptRequest\x12\x16\n" +
 	"\x06ledger\x18\x01 \x01(\tR\x06ledger\x12\x1a\n" +
 	"\bsequence\x18\x02 \x01(\x03R\bsequence\x12#\n" +
@@ -1677,7 +1848,7 @@ func file_audit_proto_rawDescGZIP() []byte {
 	return file_audit_proto_rawDescData
 }
 
-var file_audit_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
+var file_audit_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
 var file_audit_proto_goTypes = []any{
 	(*LedgerConfig)(nil),                   // 0: workflow.plugin.audit.v1.LedgerConfig
 	(*OpenTimestampsProviderConfig)(nil),   // 1: workflow.plugin.audit.v1.OpenTimestampsProviderConfig
@@ -1692,17 +1863,19 @@ var file_audit_proto_goTypes = []any{
 	(*AnchorRequest)(nil),                  // 10: workflow.plugin.audit.v1.AnchorRequest
 	(*AnchorResponse)(nil),                 // 11: workflow.plugin.audit.v1.AnchorResponse
 	(*AnchorRecord)(nil),                   // 12: workflow.plugin.audit.v1.AnchorRecord
-	(*PollAnchorConfirmationRequest)(nil),  // 13: workflow.plugin.audit.v1.PollAnchorConfirmationRequest
-	(*PollAnchorConfirmationResponse)(nil), // 14: workflow.plugin.audit.v1.PollAnchorConfirmationResponse
-	(*ProofRequest)(nil),                   // 15: workflow.plugin.audit.v1.ProofRequest
-	(*ProofResponse)(nil),                  // 16: workflow.plugin.audit.v1.ProofResponse
-	(*Entry)(nil),                          // 17: workflow.plugin.audit.v1.Entry
-	(*PublicReceiptRequest)(nil),           // 18: workflow.plugin.audit.v1.PublicReceiptRequest
-	(*PublicReceiptResponse)(nil),          // 19: workflow.plugin.audit.v1.PublicReceiptResponse
+	(*PollAnchorConfirmationConfig)(nil),   // 13: workflow.plugin.audit.v1.PollAnchorConfirmationConfig
+	(*PollAnchorConfirmationRequest)(nil),  // 14: workflow.plugin.audit.v1.PollAnchorConfirmationRequest
+	(*PollAnchorConfirmationResponse)(nil), // 15: workflow.plugin.audit.v1.PollAnchorConfirmationResponse
+	(*ProofRequest)(nil),                   // 16: workflow.plugin.audit.v1.ProofRequest
+	(*ProofResponse)(nil),                  // 17: workflow.plugin.audit.v1.ProofResponse
+	(*Entry)(nil),                          // 18: workflow.plugin.audit.v1.Entry
+	(*PublicReceiptConfig)(nil),            // 19: workflow.plugin.audit.v1.PublicReceiptConfig
+	(*PublicReceiptRequest)(nil),           // 20: workflow.plugin.audit.v1.PublicReceiptRequest
+	(*PublicReceiptResponse)(nil),          // 21: workflow.plugin.audit.v1.PublicReceiptResponse
 }
 var file_audit_proto_depIdxs = []int32{
 	12, // 0: workflow.plugin.audit.v1.AnchorResponse.anchors:type_name -> workflow.plugin.audit.v1.AnchorRecord
-	17, // 1: workflow.plugin.audit.v1.ProofResponse.entry:type_name -> workflow.plugin.audit.v1.Entry
+	18, // 1: workflow.plugin.audit.v1.ProofResponse.entry:type_name -> workflow.plugin.audit.v1.Entry
 	12, // 2: workflow.plugin.audit.v1.ProofResponse.anchors:type_name -> workflow.plugin.audit.v1.AnchorRecord
 	3,  // [3:3] is the sub-list for method output_type
 	3,  // [3:3] is the sub-list for method input_type
@@ -1722,7 +1895,7 @@ func file_audit_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_audit_proto_rawDesc), len(file_audit_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   20,
+			NumMessages:   22,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

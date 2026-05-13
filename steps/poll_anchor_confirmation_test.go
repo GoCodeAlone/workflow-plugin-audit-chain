@@ -13,12 +13,11 @@ import (
 	"github.com/GoCodeAlone/workflow-plugin-audit-chain/steps"
 	sdk "github.com/GoCodeAlone/workflow/plugin/external/sdk"
 	_ "github.com/jackc/pgx/v5/stdlib" // register pgx driver for sql.Open in tests
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func TestPollAnchorConfirmationHandler_EmptyLedger(t *testing.T) {
-	_, err := steps.PollAnchorConfirmationHandler(context.Background(), sdk.TypedStepRequest[*emptypb.Empty, *auditv1.PollAnchorConfirmationRequest]{
-		Config: &emptypb.Empty{},
+	_, err := steps.PollAnchorConfirmationHandler(context.Background(), sdk.TypedStepRequest[*auditv1.PollAnchorConfirmationConfig, *auditv1.PollAnchorConfirmationRequest]{
+		Config: &auditv1.PollAnchorConfirmationConfig{},
 		Input:  &auditv1.PollAnchorConfirmationRequest{Ledger: ""},
 	})
 	if err == nil {
@@ -34,8 +33,8 @@ func TestPollAnchorConfirmationHandler_DBNotRegistered(t *testing.T) {
 	modules.UnregisterDB(ledger)
 	t.Cleanup(func() { modules.UnregisterDB(ledger) })
 
-	_, err := steps.PollAnchorConfirmationHandler(context.Background(), sdk.TypedStepRequest[*emptypb.Empty, *auditv1.PollAnchorConfirmationRequest]{
-		Config: &emptypb.Empty{},
+	_, err := steps.PollAnchorConfirmationHandler(context.Background(), sdk.TypedStepRequest[*auditv1.PollAnchorConfirmationConfig, *auditv1.PollAnchorConfirmationRequest]{
+		Config: &auditv1.PollAnchorConfirmationConfig{},
 		Input: &auditv1.PollAnchorConfirmationRequest{
 			Ledger:     ledger,
 			AnchorId:   "42",
@@ -79,8 +78,8 @@ func TestPollAnchorConfirmationHandler_TransientError_Swallowed(t *testing.T) {
 	modules.RegisterAnchorProvider(provider, mock)
 	t.Cleanup(func() { modules.UnregisterAnchorProvider(provider) })
 
-	result, err := steps.PollAnchorConfirmationHandler(context.Background(), sdk.TypedStepRequest[*emptypb.Empty, *auditv1.PollAnchorConfirmationRequest]{
-		Config: &emptypb.Empty{},
+	result, err := steps.PollAnchorConfirmationHandler(context.Background(), sdk.TypedStepRequest[*auditv1.PollAnchorConfirmationConfig, *auditv1.PollAnchorConfirmationRequest]{
+		Config: &auditv1.PollAnchorConfirmationConfig{},
 		Input: &auditv1.PollAnchorConfirmationRequest{
 			Ledger:     ledger,
 			AnchorId:   "1",
@@ -131,8 +130,8 @@ func TestPollAnchorConfirmationHandler_HardError_PropagatesGRPC(t *testing.T) {
 	modules.RegisterAnchorProvider(provider, mock)
 	t.Cleanup(func() { modules.UnregisterAnchorProvider(provider) })
 
-	_, err := steps.PollAnchorConfirmationHandler(context.Background(), sdk.TypedStepRequest[*emptypb.Empty, *auditv1.PollAnchorConfirmationRequest]{
-		Config: &emptypb.Empty{},
+	_, err := steps.PollAnchorConfirmationHandler(context.Background(), sdk.TypedStepRequest[*auditv1.PollAnchorConfirmationConfig, *auditv1.PollAnchorConfirmationRequest]{
+		Config: &auditv1.PollAnchorConfirmationConfig{},
 		Input: &auditv1.PollAnchorConfirmationRequest{
 			Ledger:     ledger,
 			AnchorId:   "1",
@@ -170,8 +169,8 @@ func TestPollAnchorConfirmationHandler_ProviderNotRegistered(t *testing.T) {
 	modules.UnregisterAnchorProvider(provider)
 	t.Cleanup(func() { modules.UnregisterAnchorProvider(provider) })
 
-	_, err = steps.PollAnchorConfirmationHandler(context.Background(), sdk.TypedStepRequest[*emptypb.Empty, *auditv1.PollAnchorConfirmationRequest]{
-		Config: &emptypb.Empty{},
+	_, err = steps.PollAnchorConfirmationHandler(context.Background(), sdk.TypedStepRequest[*auditv1.PollAnchorConfirmationConfig, *auditv1.PollAnchorConfirmationRequest]{
+		Config: &auditv1.PollAnchorConfirmationConfig{},
 		Input: &auditv1.PollAnchorConfirmationRequest{
 			Ledger:     ledger,
 			AnchorId:   "99",
@@ -184,5 +183,92 @@ func TestPollAnchorConfirmationHandler_ProviderNotRegistered(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), provider) {
 		t.Errorf("error should mention provider name %q, got: %v", provider, err)
+	}
+}
+
+// TestPollAnchorConfirmationHandler_ConfigPathTakesPrecedence verifies that
+// when BMW-style YAML supplies parameters via the `config:` block (typed Config
+// proto) the handler reads them and ignores the zero-value Input. This is the
+// load-bearing contract for the v0.2.2 strict-proto-config-fields fix.
+func TestPollAnchorConfirmationHandler_ConfigPathTakesPrecedence(t *testing.T) {
+	const (
+		ledger   = "poll-test-cfg-precedence"
+		provider = "poll-test-cfg-provider"
+	)
+
+	db := openFakeDB(t)
+	modules.RegisterDB(ledger, db)
+	t.Cleanup(func() { modules.UnregisterDB(ledger) })
+
+	mock := &mockAnchorProvider{
+		providerName: provider,
+		verifyResult: providers.Verification{
+			Provider:     provider,
+			Confirmation: providers.ConfirmationConfirmed,
+		},
+	}
+	modules.RegisterAnchorProvider(provider, mock)
+	t.Cleanup(func() { modules.UnregisterAnchorProvider(provider) })
+
+	result, err := steps.PollAnchorConfirmationHandler(context.Background(), sdk.TypedStepRequest[*auditv1.PollAnchorConfirmationConfig, *auditv1.PollAnchorConfirmationRequest]{
+		Config: &auditv1.PollAnchorConfirmationConfig{
+			Ledger:     ledger,
+			AnchorId:   "7",
+			Provider:   provider,
+			ExternalId: "anchor-from-config",
+			ProofData:  []byte("opaque-bytes"),
+		},
+		Input: &auditv1.PollAnchorConfirmationRequest{},
+	})
+	if err != nil {
+		t.Fatalf("expected no error reading from Config, got: %v", err)
+	}
+	if result == nil || result.Output == nil {
+		t.Fatal("expected non-nil result when Config supplies all fields")
+	}
+	if mock.lastAnchor.ExternalID != "anchor-from-config" {
+		t.Errorf("provider received external_id=%q, want %q", mock.lastAnchor.ExternalID, "anchor-from-config")
+	}
+}
+
+// TestPollAnchorConfirmationHandler_ConfigOverridesInput verifies the merge
+// precedence: when Config and Input both populate the same field, Config wins.
+// Important for pipelines that re-shape `pc.Current` between iterations.
+func TestPollAnchorConfirmationHandler_ConfigOverridesInput(t *testing.T) {
+	const (
+		ledger   = "poll-test-cfg-override"
+		provider = "poll-test-override-provider"
+	)
+
+	db := openFakeDB(t)
+	modules.RegisterDB(ledger, db)
+	t.Cleanup(func() { modules.UnregisterDB(ledger) })
+
+	mock := &mockAnchorProvider{
+		providerName: provider,
+		verifyResult: providers.Verification{Provider: provider, Confirmation: providers.ConfirmationConfirmed},
+	}
+	modules.RegisterAnchorProvider(provider, mock)
+	t.Cleanup(func() { modules.UnregisterAnchorProvider(provider) })
+
+	_, err := steps.PollAnchorConfirmationHandler(context.Background(), sdk.TypedStepRequest[*auditv1.PollAnchorConfirmationConfig, *auditv1.PollAnchorConfirmationRequest]{
+		Config: &auditv1.PollAnchorConfirmationConfig{
+			Ledger:     ledger,
+			AnchorId:   "11",
+			Provider:   provider,
+			ExternalId: "cfg-ext-id",
+		},
+		Input: &auditv1.PollAnchorConfirmationRequest{
+			Ledger:     "wrong-ledger",
+			AnchorId:   "999",
+			Provider:   "wrong-provider",
+			ExternalId: "input-ext-id",
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	if mock.lastAnchor.ExternalID != "cfg-ext-id" {
+		t.Errorf("Config should win on field collision: got external_id=%q, want %q", mock.lastAnchor.ExternalID, "cfg-ext-id")
 	}
 }

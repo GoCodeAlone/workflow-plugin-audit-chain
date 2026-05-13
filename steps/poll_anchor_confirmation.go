@@ -10,7 +10,6 @@ import (
 	"github.com/GoCodeAlone/workflow-plugin-audit-chain/modules"
 	"github.com/GoCodeAlone/workflow-plugin-audit-chain/providers"
 	sdk "github.com/GoCodeAlone/workflow/plugin/external/sdk"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // PollAnchorConfirmationHandler is the TypedStepHandler for
@@ -21,11 +20,15 @@ import (
 //     with swallowed = true, error_message set, confirmation unchanged.
 //   - Hard errors (invalid proof, 4xx semantic rejection) → gRPC error (returned
 //     as a non-nil error from this handler).
+//
+// BMW-style YAML pipelines supply all parameters via the step's `config:`
+// block, so the handler reads from req.Config first and falls back to req.Input
+// for direct (integration-test) gRPC dispatch.
 func PollAnchorConfirmationHandler(
 	ctx context.Context,
-	req sdk.TypedStepRequest[*emptypb.Empty, *auditv1.PollAnchorConfirmationRequest],
+	req sdk.TypedStepRequest[*auditv1.PollAnchorConfirmationConfig, *auditv1.PollAnchorConfirmationRequest],
 ) (*sdk.TypedStepResult[*auditv1.PollAnchorConfirmationResponse], error) {
-	input := req.Input
+	input := mergePollAnchorConfirmation(req.Config, req.Input)
 
 	if input.GetLedger() == "" {
 		return nil, fmt.Errorf("step.audit.poll_anchor_confirmation: ledger is required")
@@ -117,4 +120,39 @@ func PollAnchorConfirmationHandler(
 			UpdatedAt:            updatedAt.UTC().Format(time.RFC3339),
 		},
 	}, nil
+}
+
+// mergePollAnchorConfirmation collapses the YAML-`config:`-sourced typed config
+// and the runtime-sourced typed input into a single PollAnchorConfirmationRequest
+// view that the rest of the handler can read uniformly. Config wins on field
+// collisions because BMW-style pipelines authoritatively declare parameters in
+// `config:`; Input is the fallback path used by direct gRPC dispatch (e.g. the
+// integration test) where Config is the zero value.
+func mergePollAnchorConfirmation(cfg *auditv1.PollAnchorConfirmationConfig, in *auditv1.PollAnchorConfirmationRequest) *auditv1.PollAnchorConfirmationRequest {
+	merged := &auditv1.PollAnchorConfirmationRequest{}
+	if in != nil {
+		merged.AnchorId = in.GetAnchorId()
+		merged.Provider = in.GetProvider()
+		merged.ExternalId = in.GetExternalId()
+		merged.ProofData = in.GetProofData()
+		merged.Ledger = in.GetLedger()
+	}
+	if cfg != nil {
+		if v := cfg.GetAnchorId(); v != "" {
+			merged.AnchorId = v
+		}
+		if v := cfg.GetProvider(); v != "" {
+			merged.Provider = v
+		}
+		if v := cfg.GetExternalId(); v != "" {
+			merged.ExternalId = v
+		}
+		if v := cfg.GetProofData(); len(v) > 0 {
+			merged.ProofData = v
+		}
+		if v := cfg.GetLedger(); v != "" {
+			merged.Ledger = v
+		}
+	}
+	return merged
 }

@@ -42,14 +42,17 @@ var auditContractRegistry = &pb.ContractRegistry{
 		moduleContract("audit.anchor_provider.sigstore", "SigstoreProviderConfig"),
 
 		// ── steps ────────────────────────────────────────────────────────────
-		// All audit-chain steps are stateless: config is google.protobuf.Empty.
+		// Most audit-chain steps are stateless: config is google.protobuf.Empty.
+		// poll_anchor_confirmation and public_receipt declare typed config
+		// messages so BMW-style YAML `config:` blocks pass STRICT_PROTO
+		// validation (v0.2.2 — fix for BMW smoke against workflow v0.51.5).
 		stepContractEmptyConfig("step.audit.append", "AppendRequest", "AppendResponse"),
 		stepContractEmptyConfig("step.audit.verify", "VerifyRequest", "VerifyResponse"),
 		stepContractEmptyConfig("step.audit.merkle_root", "MerkleRootRequest", "MerkleRootResponse"),
 		stepContractEmptyConfig("step.audit.anchor", "AnchorRequest", "AnchorResponse"),
-		stepContractEmptyConfig("step.audit.poll_anchor_confirmation", "PollAnchorConfirmationRequest", "PollAnchorConfirmationResponse"),
+		stepContractTypedConfig("step.audit.poll_anchor_confirmation", "PollAnchorConfirmationConfig", "PollAnchorConfirmationRequest", "PollAnchorConfirmationResponse"),
 		stepContractEmptyConfig("step.audit.proof", "ProofRequest", "ProofResponse"),
-		stepContractEmptyConfig("step.audit.public_receipt", "PublicReceiptRequest", "PublicReceiptResponse"),
+		stepContractTypedConfig("step.audit.public_receipt", "PublicReceiptConfig", "PublicReceiptRequest", "PublicReceiptResponse"),
 	},
 }
 
@@ -75,6 +78,21 @@ func stepContractEmptyConfig(stepType, inputMessage, outputMessage string) *pb.C
 		Kind:          pb.ContractKind_CONTRACT_KIND_STEP,
 		StepType:      stepType,
 		ConfigMessage: "google.protobuf.Empty",
+		InputMessage:  auditProtoPkg + inputMessage,
+		OutputMessage: auditProtoPkg + outputMessage,
+		Mode:          pb.ContractMode_CONTRACT_MODE_STRICT_PROTO,
+	}
+}
+
+// stepContractTypedConfig builds a STRICT_PROTO step contract descriptor for
+// steps whose YAML `config:` block carries typed fields (BMW-style usage where
+// the engine validates every key in `config:` against the proto message under
+// DiscardUnknown=false). All three messages live in the audit proto package.
+func stepContractTypedConfig(stepType, configMessage, inputMessage, outputMessage string) *pb.ContractDescriptor {
+	return &pb.ContractDescriptor{
+		Kind:          pb.ContractKind_CONTRACT_KIND_STEP,
+		StepType:      stepType,
+		ConfigMessage: auditProtoPkg + configMessage,
 		InputMessage:  auditProtoPkg + inputMessage,
 		OutputMessage: auditProtoPkg + outputMessage,
 		Mode:          pb.ContractMode_CONTRACT_MODE_STRICT_PROTO,
