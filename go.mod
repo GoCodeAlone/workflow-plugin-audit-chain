@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/GoCodeAlone/go-plugin v1.7.0
-	github.com/GoCodeAlone/workflow v0.51.7
+	github.com/GoCodeAlone/workflow v0.51.6
 	github.com/go-git/go-git/v5 v5.18.0
 	github.com/go-openapi/runtime v0.29.4
 	github.com/go-openapi/strfmt v0.26.2
