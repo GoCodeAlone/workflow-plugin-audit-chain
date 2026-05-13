@@ -983,7 +983,16 @@ type PollAnchorConfirmationConfig struct {
 	// external_id is the provider's anchor reference stored in audit_anchors.external_id.
 	ExternalId string `protobuf:"bytes,3,opt,name=external_id,json=externalId,proto3" json:"external_id,omitempty"`
 	// proof_data is the opaque provider-specific proof bytes stored in audit_anchors.proof_data.
-	ProofData []byte `protobuf:"bytes,4,opt,name=proof_data,json=proofData,proto3" json:"proof_data,omitempty"`
+	//
+	// Declared as string (not bytes) because BMW-style YAML pipelines populate
+	// this field via a Go template (`"{{ .item.proof_data }}"`) that renders as
+	// a raw string. proto3 JSON encoding requires `bytes` fields to be
+	// base64-encoded; BMW does not base64-encode, so a `bytes` field would be
+	// rejected at the strict-proto boundary (v0.51.5 regression discovered by
+	// BMW local smoke). The handler is responsible for decoding from string to
+	// bytes if a provider requires raw proof bytes — current providers treat
+	// proof_data as an opaque pass-through so no decoding is applied.
+	ProofData string `protobuf:"bytes,4,opt,name=proof_data,json=proofData,proto3" json:"proof_data,omitempty"`
 	// ledger identifies which ledger's DB handle to use when updating
 	// audit_anchors.confirmation after a status change.
 	Ledger        string `protobuf:"bytes,5,opt,name=ledger,proto3" json:"ledger,omitempty"`
@@ -1042,11 +1051,11 @@ func (x *PollAnchorConfirmationConfig) GetExternalId() string {
 	return ""
 }
 
-func (x *PollAnchorConfirmationConfig) GetProofData() []byte {
+func (x *PollAnchorConfirmationConfig) GetProofData() string {
 	if x != nil {
 		return x.ProofData
 	}
-	return nil
+	return ""
 }
 
 func (x *PollAnchorConfirmationConfig) GetLedger() string {
@@ -1508,7 +1517,14 @@ type PublicReceiptConfig struct {
 	// ledger is the partition key.
 	Ledger string `protobuf:"bytes,1,opt,name=ledger,proto3" json:"ledger,omitempty"`
 	// sequence is the entry sequence number for which to generate the public receipt.
-	Sequence int64 `protobuf:"varint,2,opt,name=sequence,proto3" json:"sequence,omitempty"`
+	//
+	// Declared as string (not int64) because BMW-style YAML pipelines populate
+	// this field via a Go template (`"{{ .item.audit_sequence }}"`) that renders
+	// as a raw string. Even with the engine's scalar-coerce in workflow v0.51.5,
+	// the strict-proto decoder rejects string→int64 coercion at the typed-config
+	// boundary (regression discovered by BMW local smoke). The handler parses
+	// this string to int64 internally for DB lookup.
+	Sequence string `protobuf:"bytes,2,opt,name=sequence,proto3" json:"sequence,omitempty"`
 	// redact_fields lists JSON paths in payload to redact with stable per-receipt
 	// pseudonyms (e.g. ["contributor_user_id"]). The redacted-payload + pseudonym
 	// mapping is included in the receipt; the entry_hash remains verifiable.
@@ -1554,11 +1570,11 @@ func (x *PublicReceiptConfig) GetLedger() string {
 	return ""
 }
 
-func (x *PublicReceiptConfig) GetSequence() int64 {
+func (x *PublicReceiptConfig) GetSequence() string {
 	if x != nil {
 		return x.Sequence
 	}
-	return 0
+	return ""
 }
 
 func (x *PublicReceiptConfig) GetRedactFields() []string {
@@ -1781,7 +1797,7 @@ const file_audit_proto_rawDesc = "" +
 	"\vexternal_id\x18\x03 \x01(\tR\n" +
 	"externalId\x12\x1d\n" +
 	"\n" +
-	"proof_data\x18\x04 \x01(\fR\tproofData\x12\x16\n" +
+	"proof_data\x18\x04 \x01(\tR\tproofData\x12\x16\n" +
 	"\x06ledger\x18\x05 \x01(\tR\x06ledger\"\xb0\x01\n" +
 	"\x1dPollAnchorConfirmationRequest\x12\x1b\n" +
 	"\tanchor_id\x18\x01 \x01(\tR\banchorId\x12\x1a\n" +
@@ -1824,7 +1840,7 @@ const file_audit_proto_rawDesc = "" +
 	"\bmetadata\x18\t \x01(\fR\bmetadata\"n\n" +
 	"\x13PublicReceiptConfig\x12\x16\n" +
 	"\x06ledger\x18\x01 \x01(\tR\x06ledger\x12\x1a\n" +
-	"\bsequence\x18\x02 \x01(\x03R\bsequence\x12#\n" +
+	"\bsequence\x18\x02 \x01(\tR\bsequence\x12#\n" +
 	"\rredact_fields\x18\x03 \x03(\tR\fredactFields\"o\n" +
 	"\x14PublicReceiptRequest\x12\x16\n" +
 	"\x06ledger\x18\x01 \x01(\tR\x06ledger\x12\x1a\n" +

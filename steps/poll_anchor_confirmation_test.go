@@ -216,7 +216,7 @@ func TestPollAnchorConfirmationHandler_ConfigPathTakesPrecedence(t *testing.T) {
 			AnchorId:   "7",
 			Provider:   provider,
 			ExternalId: "anchor-from-config",
-			ProofData:  []byte("opaque-bytes"),
+			ProofData:  "opaque-bytes",
 		},
 		Input: &auditv1.PollAnchorConfirmationRequest{},
 	})
@@ -228,6 +228,49 @@ func TestPollAnchorConfirmationHandler_ConfigPathTakesPrecedence(t *testing.T) {
 	}
 	if mock.lastAnchor.ExternalID != "anchor-from-config" {
 		t.Errorf("provider received external_id=%q, want %q", mock.lastAnchor.ExternalID, "anchor-from-config")
+	}
+}
+
+// TestPollAnchorConfirmationHandler_StringProofDataPassedThrough verifies the
+// v0.2.3 type-drift bridge: PollAnchorConfirmationConfig.proof_data is `string`
+// (so BMW templated values pass strict-proto without base64-encoding) and the
+// merge converts it to []byte by raw byte copy. The mock provider records the
+// Anchor.ProofData it received and the test asserts it equals the raw string
+// bytes (no base64 decoding applied).
+func TestPollAnchorConfirmationHandler_StringProofDataPassedThrough(t *testing.T) {
+	const (
+		ledger   = "poll-test-string-proof"
+		provider = "poll-test-string-proof-provider"
+	)
+
+	db := openFakeDB(t)
+	modules.RegisterDB(ledger, db)
+	t.Cleanup(func() { modules.UnregisterDB(ledger) })
+
+	mock := &mockAnchorProvider{
+		providerName: provider,
+		verifyResult: providers.Verification{Provider: provider, Confirmation: providers.ConfirmationConfirmed},
+	}
+	modules.RegisterAnchorProvider(provider, mock)
+	t.Cleanup(func() { modules.UnregisterAnchorProvider(provider) })
+
+	const rawProof = "opaque-proof-bytes-not-base64-encoded"
+	_, err := steps.PollAnchorConfirmationHandler(context.Background(), sdk.TypedStepRequest[*auditv1.PollAnchorConfirmationConfig, *auditv1.PollAnchorConfirmationRequest]{
+		Config: &auditv1.PollAnchorConfirmationConfig{
+			Ledger:     ledger,
+			AnchorId:   "13",
+			Provider:   provider,
+			ExternalId: "string-proof-ext",
+			ProofData:  rawProof,
+		},
+		Input: &auditv1.PollAnchorConfirmationRequest{},
+	})
+	if err != nil {
+		t.Fatalf("expected no error with string proof_data, got: %v", err)
+	}
+	if string(mock.lastAnchor.ProofData) != rawProof {
+		t.Errorf("provider received ProofData=%q, want raw bytes %q (no base64 decode)",
+			string(mock.lastAnchor.ProofData), rawProof)
 	}
 }
 
